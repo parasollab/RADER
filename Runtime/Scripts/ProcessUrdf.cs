@@ -32,6 +32,7 @@ public class ProcessUrdf : MonoBehaviour
     public string trajectoryTopic = "/joint_trajectory";
     public string mirrorInputTopic = "/physical_joint_state";
     public string stateOutputTopic = "/virtual_joint_state";
+    public string interactionTopic = "/interaction";
     protected List<Transform> knobs = new List<Transform>();
 
     private List<double> jointPositions = new List<double>();
@@ -65,6 +66,7 @@ public class ProcessUrdf : MonoBehaviour
             setupUI.queryTopicName = queryTopic;
             setupUI.inputStateTopicName = mirrorInputTopic;
             setupUI.outputStateTopicName = stateOutputTopic;
+            setupUI.interactionTopicName = interactionTopic;
             setupUI.knobs = knobs;
             setupUI.jointPositions = jointPositions;
             setupUI.jointNames = jointNames;

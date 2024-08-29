@@ -20,6 +20,7 @@ public class SetupUI : MonoBehaviour
     public String queryTopicName = "/joint_query";
     public String inputStateTopicName = "/physical_joint_state";
     public String outputStateTopicName = "/virtual_joint_state";
+    public String interactionTopicName = "/interaction";
     public List<Transform> knobs;
     public List<double> jointPositions;
     public List<String> jointNames;
@@ -54,6 +55,7 @@ public class SetupUI : MonoBehaviour
         ros.RegisterPublisher<JointQueryMsg>(queryTopicName);
         ros.RegisterPublisher<JointTrajectoryMsg>(trajTopicName);
         ros.RegisterPublisher<JointStateMsg>(outputStateTopicName);
+        ros.RegisterPublisher<BoolMsg>(interactionTopicName);
         ros.Subscribe<JointStateMsg>(inputStateTopicName, MirrorStateCallback);
 
         LoadUI();
@@ -82,6 +84,9 @@ public class SetupUI : MonoBehaviour
         mirrorInputState = false;
         TextMeshProUGUI mirrorButtonText = mirrorButtonObject.GetNamedChild("Button Front").GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
         mirrorButtonText.text = "Start Mirroring";
+
+        // Let the planner know that interaction is starting
+        sendInteractionMessage(true);
     }
 
     void MirrorStateCallback(JointStateMsg jointState)
@@ -93,6 +98,15 @@ public class SetupUI : MonoBehaviour
                 knobs[i].transform.localRotation = Quaternion.Euler(0, (float)jointState.position[i], 0);
             }
         }
+    }
+
+    void sendInteractionMessage(bool interaction)
+    {
+        BoolMsg interactionMsg = new BoolMsg
+        {
+            data = interaction
+        };
+        ros.Publish(interactionTopicName, interactionMsg);
     }
 
     void PublishState()
