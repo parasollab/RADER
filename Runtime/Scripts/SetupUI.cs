@@ -15,9 +15,7 @@ using RosMessageTypes.Hri;
 public class SetupUI : MonoBehaviour
 {
     public ROSConnection ros;
-    public GameObject queryUI;
-    public GameObject robotUI;
-    public GameObject mirrorUI;
+    public GameObject menuUI;
     public String trajTopicName = "/joint_trajectory";
     public String queryTopicName = "/joint_query";
     public String inputStateTopicName = "/physical_joint_state";
@@ -58,9 +56,7 @@ public class SetupUI : MonoBehaviour
         ros.RegisterPublisher<JointStateMsg>(outputStateTopicName);
         ros.Subscribe<JointStateMsg>(inputStateTopicName, MirrorStateCallback);
 
-        LoadQueryInterface();
         LoadUI();
-        LoadMirrorInterface();
         
         InitializeKnobData();
     }
@@ -72,57 +68,6 @@ public class SetupUI : MonoBehaviour
             previousAngles[knob] = knob.transform.localEulerAngles.y;
             momentsOfInertia[knob] = 0.5f; // Example value, adjust as necessary
         }
-    }
-
-    void LoadMirrorInterface()
-    {
-        Debug.Log("LoadMirrorInterface");
-        if (mirrorUI == null)
-        {
-            Debug.LogError("error loading UI");
-        }
-        mirrorUI = Instantiate(mirrorUI, transform);
-        GameObject contentGameObject = mirrorUI.GetNamedChild("Spatial Panel Scroll").GetNamedChild("Scroll View").GetNamedChild("Viewport").GetNamedChild("Content");
-
-        // Mirror input button
-        mirrorButtonObject = contentGameObject.GetNamedChild("Mirror Input Button").GetNamedChild("Text Poke Button");
-        Button mirrorButton = mirrorButtonObject.GetComponent<Button>();
-        TextMeshProUGUI mirrorButtonText = mirrorButtonObject.GetNamedChild("Button Front").GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
-
-        mirrorButton.onClick.AddListener(() =>
-        {
-            Debug.Log("mirrorButton.onClick");
-            if (mirrorInputState)
-            {
-                stopMirroring();
-            }
-            else
-            {
-                startMirroring();
-            }
-        });
-
-        // Publish state button
-        publishStateButtonObject = contentGameObject.GetNamedChild("Publish State Button").GetNamedChild("Text Poke Button");
-        Button publishStateButton = publishStateButtonObject.GetComponent<Button>();
-        TextMeshProUGUI publishStateButtonText = publishStateButtonObject.GetNamedChild("Button Front").GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
-
-        publishStateButton.onClick.AddListener(() =>
-        {
-            Debug.Log("publishStateButton.onClick");
-            if (publishState)
-            {
-                publishState = false;
-                publishStateButtonText.text = "Start Publishing";
-            }
-            else
-            {
-                publishState = true;
-                publishStateButtonText.text = "Stop Publishing";
-            }
-        });
-
-        InvokeRepeating("PublishState", 1.0f, publishStateInterval);
     }
 
     public void startMirroring()
@@ -168,50 +113,6 @@ public class SetupUI : MonoBehaviour
             };
             ros.Publish(outputStateTopicName, jointState);
         }
-    }
-
-    void LoadQueryInterface()
-    {
-        Debug.Log("LoadQueryInterface");
-        if (queryUI == null)
-        {
-            Debug.LogError("error loading UI");
-        }
-        queryUI = Instantiate(queryUI, transform);
-        GameObject contentGameObject = queryUI.GetNamedChild("Spatial Panel Scroll").GetNamedChild("Scroll View").GetNamedChild("Viewport").GetNamedChild("Content");
-
-        startButtonObject = contentGameObject.GetNamedChild("Set Start Button").GetNamedChild("Text Poke Button");
-        Button startButton = startButtonObject.GetComponent<Button>();
-        TextMeshProUGUI startButtonText = startButtonObject.GetNamedChild("Button Front").GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
-
-        startButton.onClick.AddListener(() =>
-        {
-            setStart();
-            startButtonText.text = "Start is Set!";
-        });
-
-        goalButtonObject = contentGameObject.GetNamedChild("Set Goal Button").GetNamedChild("Text Poke Button");
-        Button goalButton = goalButtonObject.GetComponent<Button>();
-        TextMeshProUGUI goalButtonText = goalButtonObject.GetNamedChild("Button Front").GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
-
-        goalButton.onClick.AddListener(() =>
-        {
-            setGoal();
-            goalButtonText.text = "Goal is Set!";
-        });
-
-        queryButtonObject = contentGameObject.GetNamedChild("Send Query Button").GetNamedChild("Text Poke Button");
-        Button queryButton = queryButtonObject.GetComponent<Button>();
-        TextMeshProUGUI queryButtonText = queryButtonObject.GetNamedChild("Button Front").GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
-
-        queryButton.onClick.AddListener(() =>
-        {
-            sendQueryMessage();
-            queryButtonText.text = "Query Sent!";
-        });
-
-        // Disable the query button until both start and goal are set
-        queryButton.interactable = false;
     }
 
     void setStart()
@@ -276,29 +177,51 @@ public class SetupUI : MonoBehaviour
 
     void LoadUI()
     {
-        if (robotUI == null)
+        if (menuUI == null)
         {
             Debug.LogError("error loading UI");
         }
-        robotUI = Instantiate(robotUI, transform);
-        GameObject contentGameObject = robotUI.GetNamedChild("Spatial Panel Scroll").GetNamedChild("Scroll View").GetNamedChild("Viewport").GetNamedChild("Content");
+        menuUI = Instantiate(menuUI, transform);
 
-        // button
-        recordButtonObject = contentGameObject.GetNamedChild("List Item Button").GetNamedChild("Text Poke Button");
+        // Load the interface for recording demos and setting joint angles
+        GameObject contentGameObject = menuUI.GetNamedChild("Spatial Panel Scroll").GetNamedChild("Robot Scroll View").GetNamedChild("Viewport").GetNamedChild("Content");
+
+        // Record button
+        recordButtonObject = contentGameObject.GetNamedChild("Record Button").GetNamedChild("Text Poke Button");
         Button button = recordButtonObject.GetComponent<Button>();
         TextMeshProUGUI buttonText = recordButtonObject.GetNamedChild("Button Front").GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
+
+        // Discard button
+        GameObject discardButtonObject = contentGameObject.GetNamedChild("Discard Button").GetNamedChild("Text Poke Button");
+        Button discardButton = discardButtonObject.GetComponent<Button>();
+        
+        discardButton.onClick.AddListener(() =>
+        {
+            resetJointPositionMessage();
+            if (recordROS == true)
+            {
+                recordROS = false;
+                buttonText.text = "Start Recording";
+            }
+        });
+
+        discardButton.interactable = false;
+
+        // Record button functionality
 
         button.onClick.AddListener(() =>
         {
             if (recordROS == true)
             {
                 recordROS = false;
+                discardButton.interactable = false;
                 buttonText.text = "Start Recording";
                 sendJointPositionMessage();
             }
             else
             {
                 recordROS = true;
+                discardButton.interactable = true;
                 buttonText.text = "Send Recording";
             }
         });
@@ -329,6 +252,85 @@ public class SetupUI : MonoBehaviour
         });
 
         InvokeRepeating("addJointPosition", 1.0f, recordInterval);
+
+        // Load the query interface
+        contentGameObject = menuUI.GetNamedChild("Spatial Panel Scroll").GetNamedChild("Query Scroll View").GetNamedChild("Viewport").GetNamedChild("Content");
+
+        startButtonObject = contentGameObject.GetNamedChild("Set Start Button").GetNamedChild("Text Poke Button");
+        Button startButton = startButtonObject.GetComponent<Button>();
+        TextMeshProUGUI startButtonText = startButtonObject.GetNamedChild("Button Front").GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
+
+        startButton.onClick.AddListener(() =>
+        {
+            setStart();
+            startButtonText.text = "Start is Set!";
+        });
+
+        goalButtonObject = contentGameObject.GetNamedChild("Set Goal Button").GetNamedChild("Text Poke Button");
+        Button goalButton = goalButtonObject.GetComponent<Button>();
+        TextMeshProUGUI goalButtonText = goalButtonObject.GetNamedChild("Button Front").GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
+
+        goalButton.onClick.AddListener(() =>
+        {
+            setGoal();
+            goalButtonText.text = "Goal is Set!";
+        });
+
+        queryButtonObject = contentGameObject.GetNamedChild("Send Query Button").GetNamedChild("Text Poke Button");
+        Button queryButton = queryButtonObject.GetComponent<Button>();
+        TextMeshProUGUI queryButtonText = queryButtonObject.GetNamedChild("Button Front").GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
+
+        queryButton.onClick.AddListener(() =>
+        {
+            sendQueryMessage();
+            queryButtonText.text = "Query Sent!";
+        });
+
+        // Disable the query button until both start and goal are set
+        queryButton.interactable = false;
+
+        // Load the mirror interface
+        contentGameObject = menuUI.GetNamedChild("Spatial Panel Scroll").GetNamedChild("Mirror Scroll View").GetNamedChild("Viewport").GetNamedChild("Content");
+
+        // Mirror input button
+        mirrorButtonObject = contentGameObject.GetNamedChild("Mirror Input Button").GetNamedChild("Text Poke Button");
+        Button mirrorButton = mirrorButtonObject.GetComponent<Button>();
+        TextMeshProUGUI mirrorButtonText = mirrorButtonObject.GetNamedChild("Button Front").GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
+
+        mirrorButton.onClick.AddListener(() =>
+        {
+            Debug.Log("mirrorButton.onClick");
+            if (mirrorInputState)
+            {
+                stopMirroring();
+            }
+            else
+            {
+                startMirroring();
+            }
+        });
+
+        // Publish state button
+        publishStateButtonObject = contentGameObject.GetNamedChild("Publish State Button").GetNamedChild("Text Poke Button");
+        Button publishStateButton = publishStateButtonObject.GetComponent<Button>();
+        TextMeshProUGUI publishStateButtonText = publishStateButtonObject.GetNamedChild("Button Front").GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
+
+        publishStateButton.onClick.AddListener(() =>
+        {
+            Debug.Log("publishStateButton.onClick");
+            if (publishState)
+            {
+                publishState = false;
+                publishStateButtonText.text = "Start Publishing";
+            }
+            else
+            {
+                publishState = true;
+                publishStateButtonText.text = "Stop Publishing";
+            }
+        });
+
+        InvokeRepeating("PublishState", 1.0f, publishStateInterval);
     }
 
     void addJointPosition()
@@ -390,6 +392,11 @@ public class SetupUI : MonoBehaviour
         ros.Publish(trajTopicName, jointTrajectory);
 
         // Clear the jointTrajectoryPoints list
+        resetJointPositionMessage();
+    }
+
+    void resetJointPositionMessage()
+    {
         jointTrajectoryPoints.Clear();
         recordStartTime = 0;
     }

@@ -16,9 +16,7 @@ public class ProcessUrdf : MonoBehaviour
     public GameObject urdfModel;  // Reference to the base of the robot's URDF model
 
     public GameObject target;  // Reference to the target object for the CCDIK
-    public GameObject queryUI;  // Reference to the query UI prefab
-    public GameObject robotUI;  // Reference to the robot's UI prefab
-    public GameObject mirrorUI;
+    public GameObject menuUI;  // Reference to the meanu UI prefab
     private List<KeyValuePair<GameObject, GameObject>> reparentingList = new List<KeyValuePair<GameObject, GameObject>>();
 
     private List<Tuple<float, float>> jointLimits = new List<Tuple<float, float>>();
@@ -70,9 +68,7 @@ public class ProcessUrdf : MonoBehaviour
             setupUI.knobs = knobs;
             setupUI.jointPositions = jointPositions;
             setupUI.jointNames = jointNames;
-            setupUI.robotUI = robotUI;
-            setupUI.queryUI = queryUI;
-            setupUI.mirrorUI = mirrorUI;
+            setupUI.menuUI = menuUI;
             Debug.Log("SetupUI done");
 
             #if UNITY_EDITOR
