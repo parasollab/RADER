@@ -77,6 +77,9 @@ public class SetupUI : MonoBehaviour
         mirrorInputState = true;
         TextMeshProUGUI mirrorButtonText = mirrorButtonObject.GetNamedChild("Button Front").GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
         mirrorButtonText.text = "Stop Mirroring";
+
+        // Let the planner know that interaction is not happening
+        sendInteractionMessage(false);
     }
 
     public void stopMirroring()
@@ -231,6 +234,9 @@ public class SetupUI : MonoBehaviour
                 discardButton.interactable = false;
                 buttonText.text = "Start Recording";
                 sendJointPositionMessage();
+
+                // Let the planner know that interaction is starting
+                sendInteractionMessage(true);
             }
             else
             {
@@ -407,6 +413,9 @@ public class SetupUI : MonoBehaviour
 
         // Clear the jointTrajectoryPoints list
         resetJointPositionMessage();
+
+        // Let the planner know that interaction is done
+        sendInteractionMessage(false);
     }
 
     void resetJointPositionMessage()
