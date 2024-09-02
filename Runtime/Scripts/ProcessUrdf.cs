@@ -166,8 +166,8 @@ public class ProcessUrdf : MonoBehaviour
             child.transform.parent = knobParent.transform;
 
             // zero out child's local position and rotation
-            child.transform.localPosition = Vector3.zero;
-            child.transform.localRotation = Quaternion.identity;
+            // child.transform.localPosition = Vector3.zero;
+            // child.transform.localRotation = Quaternion.identity;
 
             // // Add CCDIK components to the child, and add references to the list
             CCDIKJoint ccdik = child.AddComponent<CCDIKJoint>();
@@ -177,9 +177,10 @@ public class ProcessUrdf : MonoBehaviour
 
             // // Add the XRKnobAlt
             XRKnobAlt knob = knobParent.AddComponent<XRKnobAlt>();
-            knob.clampedMotion = clampedMotionList[i];
-            knob.minAngle = jointLimits[i].Item1;
-            knob.maxAngle = jointLimits[i].Item2;
+            knob.uniqueID = i;
+            // knob.clampedMotion = clampedMotionList[i];
+            knob.jointMinAngle = jointLimits[i].Item1;
+            knob.jointMaxAngle = jointLimits[i].Item2;
 
             // Debug.LogError("Parent " + knobParent.name + " Joint " + knob.name + " upper limit: " + knob.maxAngle + " lower limit: " + knob.minAngle);
 
@@ -209,6 +210,7 @@ public class ProcessUrdf : MonoBehaviour
                 knob.colliders.Add(meshCollider);
             }
         }
+        jointNames.Reverse();
     }
 
     void createInteractionAffordance(GameObject child, XRKnobAlt knob, GameObject knobParent)

@@ -103,58 +103,12 @@ public class SetupUI : MonoBehaviour
         // Debug.Log("MirrorStateCallback");
         if (mirrorInputState)
         {
-            // Debug.Log("MirrorStateCallback: mirrorInputState");\
-            int numJoints = jointState.name.Length;
-
-            if(jointSigns.Count == 0)
-                jointSigns = new List<int>(new int[numJoints]);
-
-            float[] angles = new float[jointState.position.Length];
-            for (int i = 0; i < jointState.name.Length; i++)
-            {
-                // set angle to be in the range of -pi to pi
-                if (jointState.position[i] > 0.0)
-                {
-                    angles[i] = 360.0f - ((float)jointState.position[i] * (float)180.0 / MathF.PI);
-                    jointSigns[i] = 1;
-                }
-                else
-                {
-                    angles[i] = -1.0f * ((float)jointState.position[i] * (float)180.0 / MathF.PI);
-                    jointSigns[i] = -1;
-                }
-            }
-
-            knobTransforms[0].transform.localRotation = Quaternion.Euler(0, angles[4], 0);
-
-            knobTransforms[1].transform.localRotation = Quaternion.Euler(0, angles[3], 0);
-
-            knobTransforms[2].transform.localRotation = Quaternion.Euler(0, angles[2], 0);
-
-            knobTransforms[3].transform.localRotation = Quaternion.Euler(0, angles[1], 0);
-
-            knobTransforms[4].transform.localRotation = Quaternion.Euler(0, angles[0], 0);
-
-            knobTransforms[5].transform.localRotation = Quaternion.Euler(0, angles[5], 0);
-
-
-            // knobTransforms[0].transform.localRotation = Quaternion.Euler(0, (float)jointState.position[4] * (float)180.0 / MathF.PI, 0);
-
-            // knobTransforms[1].transform.localRotation = Quaternion.Euler(0, (float)jointState.position[3] * (float)180.0 / MathF.PI, 0);
-
-            // knobTransforms[2].transform.localRotation = Quaternion.Euler(0, (float)jointState.position[2] * (float)180.0 / MathF.PI, 0);
-
-            // knobTransforms[3].transform.localRotation = Quaternion.Euler(0, (float)jointState.position[1] * (float)180.0 / MathF.PI, 0);
-
-            // knobTransforms[4].transform.localRotation = Quaternion.Euler(0, (float)jointState.position[0] * (float)180.0 / MathF.PI, 0);
-
-            // knobTransforms[5].transform.localRotation = Quaternion.Euler(0, (float)jointState.position[5] * (float)180.0 / MathF.PI, 0);
-
-            // mirrorInputState = false;
-            // for (int i = 0; i < knobs.Count; i++)
-            // {
-            //     knobs[i].transform.localRotation = Quaternion.Euler(0, (float)jointState.position[i] * (float)180.0 / MathF.PI, 0);
-            // }
+            knobs[0].jointAngle = -((float)jointState.position[5] * Mathf.Rad2Deg);
+            knobs[1].jointAngle = -((float)jointState.position[0] * Mathf.Rad2Deg);
+            knobs[2].jointAngle = -((float)jointState.position[1] * Mathf.Rad2Deg);
+            knobs[3].jointAngle = -((float)jointState.position[2] * Mathf.Rad2Deg);
+            knobs[4].jointAngle = -((float)jointState.position[3] * Mathf.Rad2Deg);
+            knobs[5].jointAngle = -((float)jointState.position[4] * Mathf.Rad2Deg);
         }
     }
 
@@ -171,23 +125,9 @@ public class SetupUI : MonoBehaviour
     {
         if (publishState)
         {
-            // Update the joint positions
-            List<double> jointAnglesWithinLimits = getJointAnglesWithinLimits();
-            
-            int[] key = {4, 3, 2, 1, 0, 5};
-
             for (int i = 0; i < knobTransforms.Count; i++)
             {
-                double angle = jointAnglesWithinLimits[i];
-                // if (jointSigns[key[i]] == -1)
-                // {
-                //     angle = -angle;
-                // }
-                // else
-                // {
-                //     angle = 360.0 + angle;
-                // }
-                jointPositions[i] = angle * (float)Math.PI / 180.0;
+                jointPositions[i] = -knobs[i].jointAngle * Mathf.Deg2Rad;
             }
            
             // Publish the joint state message
@@ -324,24 +264,27 @@ public class SetupUI : MonoBehaviour
 
         dropdown.AddOptions(jointNames);
         int dropdownIndex = 0;
-        slider.value = knobTransforms[dropdownIndex].GetComponentInParent<XRKnobAlt>().value;
-        sliderText.text = knobTransforms[dropdownIndex].transform.localRotation.eulerAngles.y.ToString();
-        slider.minValue = knobs[dropdownIndex].minAngle;
-        slider.maxValue = knobs[dropdownIndex].maxAngle;
+        int knobID = knobs[dropdownIndex].uniqueID;
+        slider.value = knobTransforms[dropdownIndex].GetComponentInParent<XRKnobAlt>().jointAngle;
+        sliderText.text = (-knobTransforms[dropdownIndex].GetComponentInParent<XRKnobAlt>().jointAngle).ToString();
+        slider.minValue = knobs[dropdownIndex].jointMinAngle;
+        slider.maxValue = knobs[dropdownIndex].jointMaxAngle;
 
         dropdown.onValueChanged.AddListener(delegate
         {
             dropdownIndex = dropdown.value;
-            slider.value = knobTransforms[dropdown.value].GetComponentInParent<XRKnobAlt>().value;
-            Debug.Log("minAngle: " + knobs[dropdownIndex].minAngle + ", maxAngle: " + knobs[dropdownIndex].maxAngle);
-            slider.minValue = knobs[dropdownIndex].minAngle;
-            slider.maxValue = knobs[dropdownIndex].maxAngle;
+            knobID = knobs[dropdownIndex].uniqueID;
+            
+            slider.value = knobTransforms[dropdown.value].GetComponentInParent<XRKnobAlt>().jointAngle;
+            // Debug.Log("minAngle: " + knobs[dropdownIndex].jointMinAngle + ", maxAngle: " + knobs[dropdownIndex].jointMaxAngle);
+            slider.minValue = knobs[dropdownIndex].jointMinAngle;
+            slider.maxValue = knobs[dropdownIndex].jointMaxAngle;
         });
 
         slider.onValueChanged.AddListener(delegate
         {
-            knobTransforms[dropdownIndex].GetComponentInParent<XRKnobAlt>().value = slider.value;
-            sliderText.text = knobTransforms[dropdownIndex].transform.localRotation.eulerAngles.y.ToString();
+            knobTransforms[dropdownIndex].GetComponentInParent<XRKnobAlt>().jointAngle = slider.value;
+            sliderText.text = (-knobTransforms[dropdownIndex].GetComponentInParent<XRKnobAlt>().jointAngle).ToString();
         });
 
         InvokeRepeating("addJointPosition", 1.0f, recordInterval);
@@ -436,12 +379,12 @@ public class SetupUI : MonoBehaviour
                 recordStartTime = (int)Time.time;
             }
 
-            List<double> jointAnglesWithinLimits = getJointAnglesWithinLimits();
+            // List<double> jointAnglesWithinLimits = getJointAnglesWithinLimits();
             jointTorques = new List<double>();
             for (int i = 0; i < knobTransforms.Count; i++)
             {
-                jointPositions[i] = jointAnglesWithinLimits[i] * (float)Math.PI / 180.0;
-
+                jointPositions[i] = -knobs[i].jointAngle * Mathf.Deg2Rad;
+                
                 // Get the torque from the knob
                 float torque = CalculateTorque(knobTransforms[i]);
                 jointTorques.Add(torque);
@@ -499,8 +442,8 @@ public class SetupUI : MonoBehaviour
         for (int i = 0; i < knobs.Count; i++)
         {
             // Scale and shift the value to be within the joint limits
-            double value = knobs[i].value;
-            double jointAngle = knobs[i].minAngle + value * (knobs[i].maxAngle - knobs[i].minAngle);
+            double value = knobs[i].jointAngle;
+            double jointAngle = knobs[i].jointMinAngle + value * (knobs[i].jointMaxAngle - knobs[i].jointMinAngle);
             jointAnglesWithinLimits.Add(jointAngle);
         }
         return jointAnglesWithinLimits;
