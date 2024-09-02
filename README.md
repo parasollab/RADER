@@ -6,7 +6,7 @@ We intend for this to be used for robotic learning from demonstration, however, 
 
 ## Package Installation
 
-This package can be installed using Unity's Package Manager window. Add the package via git and use this URL: `https://github.com/parasollab/RADER`.
+This package can be installed using Unity's Package Manager window. Add the package via git and use this URL: `https://github.com/parasollab/RADER.git`.
 
 This package can be used on its own but is maximally useful when used in conjunction with ROS nodes running on an external computer to process the trajectory data collected. Our ROS nodes can be found here: [https://github.com/parasollab/hri_ws](https://github.com/parasollab/hri_ws).
 
