@@ -326,11 +326,16 @@ public class SetupUI : MonoBehaviour
         int dropdownIndex = 0;
         slider.value = knobTransforms[dropdownIndex].GetComponentInParent<XRKnobAlt>().value;
         sliderText.text = knobTransforms[dropdownIndex].transform.localRotation.eulerAngles.y.ToString();
+        slider.minValue = knobs[dropdownIndex].minAngle;
+        slider.maxValue = knobs[dropdownIndex].maxAngle;
 
         dropdown.onValueChanged.AddListener(delegate
         {
             dropdownIndex = dropdown.value;
             slider.value = knobTransforms[dropdown.value].GetComponentInParent<XRKnobAlt>().value;
+            Debug.Log("minAngle: " + knobs[dropdownIndex].minAngle + ", maxAngle: " + knobs[dropdownIndex].maxAngle);
+            slider.minValue = knobs[dropdownIndex].minAngle;
+            slider.maxValue = knobs[dropdownIndex].maxAngle;
         });
 
         slider.onValueChanged.AddListener(delegate

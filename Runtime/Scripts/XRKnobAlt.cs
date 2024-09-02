@@ -94,8 +94,7 @@ namespace Unity.VRTemplate
 
         [SerializeField]
         [Tooltip("The value of the knob")]
-        [Range(0.0f, 1.0f)]
-        float m_Value = 0.5f;
+        float m_Value = 0.0f;
 
         [SerializeField]
         [Tooltip("Whether this knob's rotation should be clamped by the angle limits")]
@@ -369,13 +368,13 @@ namespace Unity.VRTemplate
             if (m_ClampedMotion)
                 newValue = Mathf.Clamp01(newValue);
 
-            if (m_AngleIncrement > 0)
-            {
-                var angleRange = m_MaxAngle - m_MinAngle;
-                var angle = Mathf.Lerp(0.0f, angleRange, newValue);
-                angle = Mathf.Round(angle / m_AngleIncrement) * m_AngleIncrement;
-                newValue = Mathf.InverseLerp(0.0f, angleRange, angle);
-            }
+            // if (m_AngleIncrement > 0)
+            // {
+            //     var angleRange = m_MaxAngle - m_MinAngle;
+            //     var angle = Mathf.Lerp(0.0f, angleRange, newValue);
+            //     angle = Mathf.Round(angle / m_AngleIncrement) * m_AngleIncrement;
+            //     newValue = Mathf.InverseLerp(0.0f, angleRange, angle);
+            // }
 
             m_Value = newValue;
             m_OnValueChange.Invoke(m_Value);
@@ -383,10 +382,11 @@ namespace Unity.VRTemplate
 
         float ValueToRotation()
         {
-            Debug.Log("name: " + name);
-            Debug.Log("min: " + m_MinAngle + " max: " + m_MaxAngle + " value: " + m_Value);
-            Debug.Log("rot: " + Mathf.Lerp(m_MinAngle, m_MaxAngle, m_Value));
-            return m_ClampedMotion ? Mathf.Lerp(m_MinAngle, m_MaxAngle, m_Value) : Mathf.LerpUnclamped(m_MinAngle, m_MaxAngle, m_Value);
+            return m_Value;
+            // Debug.Log("name: " + name);
+            // Debug.Log("min: " + m_MinAngle + " max: " + m_MaxAngle + " value: " + m_Value);
+            // Debug.Log("rot: " + Mathf.Lerp(m_MinAngle, m_MaxAngle, m_Value));
+            // return m_ClampedMotion ? Mathf.Lerp(m_MinAngle, m_MaxAngle, m_Value) : Mathf.LerpUnclamped(m_MinAngle, m_MaxAngle, m_Value);
         }
 
         public float Val2Rot(float value)
