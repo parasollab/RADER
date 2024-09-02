@@ -34,6 +34,7 @@ public class ProcessUrdf : MonoBehaviour
     public string stateOutputTopic = "/virtual_joint_state";
     public string interactionTopic = "/interaction";
     protected List<Transform> knobs = new List<Transform>();
+    protected List<XRKnobAlt> knobObjs = new List<XRKnobAlt>();
 
     private List<double> jointPositions = new List<double>();
 
@@ -67,7 +68,8 @@ public class ProcessUrdf : MonoBehaviour
             setupUI.inputStateTopicName = mirrorInputTopic;
             setupUI.outputStateTopicName = stateOutputTopic;
             setupUI.interactionTopicName = interactionTopic;
-            setupUI.knobs = knobs;
+            setupUI.knobTransforms = knobs;
+            setupUI.knobs = knobObjs;
             setupUI.jointPositions = jointPositions;
             setupUI.jointNames = jointNames;
             setupUI.menuUI = menuUI;
@@ -109,9 +111,15 @@ public class ProcessUrdf : MonoBehaviour
         {
             jointCount++;
             bool isClampedMotion = articulationBody.xDrive.upperLimit - articulationBody.xDrive.lowerLimit < 360;
+            // bool isClampedMotion = (articulationBody.xDrive.upperLimit != 0) && (articulationBody.xDrive.lowerLimit != 0);
             Tuple<float, float> jointLimit = new Tuple<float, float>(articulationBody.xDrive.lowerLimit, articulationBody.xDrive.upperLimit);
+            // Debug.LogAssertion("Joint " + obj.name + " has 0 range of motion, setting to 360");
+            // Debug.LogError("Joint " + obj.name + " upper limit: " + articulationBody.xDrive.upperLimit + " lower limit: " + articulationBody.xDrive.lowerLimit);
+            // Debug.LogError("Joint " + obj.name + " isClampedMotion: " + isClampedMotion);
+
 
             if (articulationBody.xDrive.upperLimit - articulationBody.xDrive.lowerLimit == 0 && articulationBody.jointType == ArticulationJointType.RevoluteJoint) {
+                // Debug.LogError("Joint " + obj.name + " has 0 range of motion, setting to 360");
                 isClampedMotion = false;
                 jointLimit = new Tuple<float, float>(0, 360);
             }
@@ -144,7 +152,6 @@ public class ProcessUrdf : MonoBehaviour
 
     void reParent()
     {
-
         for (int i = reparentingList.Count - 1; i >= 0; i--)
         {
             var pair = reparentingList[i];
@@ -174,13 +181,19 @@ public class ProcessUrdf : MonoBehaviour
             knob.minAngle = jointLimits[i].Item1;
             knob.maxAngle = jointLimits[i].Item2;
 
+            // Debug.LogError("Parent " + knobParent.name + " Joint " + knob.name + " upper limit: " + knob.maxAngle + " lower limit: " + knob.minAngle);
+
+
             knob.handle = child.transform;
             
             createInteractionAffordance(child, knob, knobParent);
 
             // Use .Prepend to reverse the joint order
+            knobObjs.Insert(0, knob);
             knobs.Add(child.transform);
             jointPositions.Add(child.transform.localRotation.eulerAngles.y);
+
+            // Debug.Log(child.name + " " + child.transform.localRotation.eulerAngles.y);
 
             // // Check for MeshCollider on the child or its descendants
             MeshCollider meshCollider = child.GetComponent<MeshCollider>();

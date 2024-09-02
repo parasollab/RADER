@@ -54,7 +54,7 @@ namespace Unity.VRTemplate
             public void SetBaseFromVector(Vector3 direction)
             {
                 // Update any accumulated angle
-                m_AccumulatedAngle += m_CurrentOffset;
+                // m_AccumulatedAngle += m_CurrentOffset;
 
                 // Now set a new base angle
                 m_BaseAngle = Mathf.Atan2(direction.z, direction.x) * Mathf.Rad2Deg;
@@ -69,17 +69,18 @@ namespace Unity.VRTemplate
             {
                 // Set the target angle
                 var targetAngle = Mathf.Atan2(direction.z, direction.x) * Mathf.Rad2Deg;
+                m_CurrentOffset = targetAngle;
 
                 // Return the offset
-                m_CurrentOffset = ShortestAngleDistance(m_BaseAngle, targetAngle, 360.0f);
+                // m_CurrentOffset = ShortestAngleDistance(m_BaseAngle, targetAngle, 360.0f);
 
                 // If the offset is greater than 90 degrees, we update the base so we can rotate beyond 180 degrees
-                if (Mathf.Abs(m_CurrentOffset) > 90.0f)
-                {
-                    m_BaseAngle = targetAngle;
-                    m_AccumulatedAngle += m_CurrentOffset;
-                    m_CurrentOffset = 0.0f;
-                }
+                // if (Mathf.Abs(m_CurrentOffset) > 90.0f)
+                // {
+                //     m_BaseAngle = targetAngle;
+                //     m_AccumulatedAngle += m_CurrentOffset;
+                //     m_CurrentOffset = 0.0f;
+                // }
             }
         }
 
@@ -218,6 +219,14 @@ namespace Unity.VRTemplate
             base.OnDisable();
         }
 
+        void Update()
+        {
+            if(transform.hasChanged) {
+                UpdateBaseKnobRotation();
+                transform.hasChanged = false;
+            }
+        }
+
         void StartGrab(SelectEnterEventArgs args)
         {
             m_Interactor = args.interactorObject;
@@ -329,6 +338,7 @@ namespace Unity.VRTemplate
 
             // Apply offset to base knob rotation to get new knob rotation
             var knobRotation = m_BaseKnobRotation - ((m_UpVectorAngles.totalOffset + m_ForwardVectorAngles.totalOffset) * m_TwistSensitivity) - m_PositionAngles.totalOffset;
+
             // Clamp to range
             if (m_ClampedMotion)
                 knobRotation = Mathf.Clamp(knobRotation, m_MinAngle, m_MaxAngle);
@@ -348,8 +358,10 @@ namespace Unity.VRTemplate
                 angle = (Mathf.Round(normalizeAngle / m_AngleIncrement) * m_AngleIncrement) + m_MinAngle;
             }
 
-            if (m_Handle != null)
+            // Debug.Log("skr angle: " + angle) ;
+            if (m_Handle != null) {
                 m_Handle.localEulerAngles = new Vector3(0.0f, angle, 0.0f);
+            }
         }
 
         void SetValue(float newValue)
@@ -371,10 +383,18 @@ namespace Unity.VRTemplate
 
         float ValueToRotation()
         {
+            Debug.Log("name: " + name);
+            Debug.Log("min: " + m_MinAngle + " max: " + m_MaxAngle + " value: " + m_Value);
+            Debug.Log("rot: " + Mathf.Lerp(m_MinAngle, m_MaxAngle, m_Value));
             return m_ClampedMotion ? Mathf.Lerp(m_MinAngle, m_MaxAngle, m_Value) : Mathf.LerpUnclamped(m_MinAngle, m_MaxAngle, m_Value);
         }
 
-        void UpdateBaseKnobRotation()
+        public float Val2Rot(float value)
+        {
+            return Mathf.Lerp(m_MinAngle, m_MaxAngle, value);
+        }
+
+        public void UpdateBaseKnobRotation()
         {
             var currentValue = RotationToValue(m_Handle.localEulerAngles.y);
             SetValue(currentValue);
@@ -384,12 +404,14 @@ namespace Unity.VRTemplate
         float RotationToValue(float rotation)
         {
             // Clamp the rotation to the range if clamped motion is enabled
+            // Debug.Log("rotation: " + rotation);
             if (m_ClampedMotion)
             {
                 rotation = Mathf.Clamp(rotation, m_MinAngle, m_MaxAngle);
             }
 
             // Convert the rotation to a value
+            // Debug.Log("rotation3: " + (rotation - m_MinAngle) / (m_MaxAngle - m_MinAngle));
             return (rotation - m_MinAngle) / (m_MaxAngle - m_MinAngle);
         }
 
