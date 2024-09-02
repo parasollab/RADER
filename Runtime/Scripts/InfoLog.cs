@@ -4,7 +4,7 @@ using UnityEngine;
 using Unity.Robotics.ROSTCPConnector;
 using RosMessageTypes.Std;
 
-public class NewBehaviourScript : MonoBehaviour
+public class InfoLog : MonoBehaviour
 {
     public ROSConnection ros;
     public string topicName = "/user_info";

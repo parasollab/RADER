@@ -28,7 +28,7 @@ public class SetupUI : MonoBehaviour
     public List<double> jointPositions;
     public List<String> jointNames;
     public List<int> jointSigns = new List<int>();
-    public float recordInterval = 0.5f;
+    public float recordInterval = 0.1f;
     public float publishStateInterval = 0.2f;
 
     private bool recordROS = false;
@@ -73,7 +73,7 @@ public class SetupUI : MonoBehaviour
         foreach (var knob in knobTransforms)
         {
             previousAngles[knob] = knob.transform.localEulerAngles.y;
-            momentsOfInertia[knob] = 0.5f; // Example value, adjust as necessary
+            momentsOfInertia[knob] = 0.0005f; // Example value, adjust as necessary
         }
     }
 
@@ -254,15 +254,19 @@ public class SetupUI : MonoBehaviour
             }
         });
 
-        // Disable the button until a query is sent
-        button.interactable = false;
+        // (Don't) Disable the button until a query is sent
+        button.interactable = true;
 
         // dropdown and slider
         TMP_Dropdown dropdown = contentGameObject.GetNamedChild("List Item Dropdown").GetNamedChild("Dropdown").GetComponent<TMP_Dropdown>();
         Slider slider = contentGameObject.GetNamedChild("List Item Slider").GetNamedChild("MinMax Slider").GetComponent<Slider>();
         TextMeshProUGUI sliderText = slider.gameObject.GetNamedChild("Value Text").GetComponent<TextMeshProUGUI>();
 
-        dropdown.AddOptions(jointNames);
+        // Populate the dropdown with the joint names reversed without changing the jointNames list
+        List<string> reversedJointNames = new List<string>(jointNames);
+        reversedJointNames.Reverse();
+        dropdown.AddOptions(reversedJointNames);
+        
         int dropdownIndex = 0;
         int knobID = knobs[dropdownIndex].uniqueID;
         slider.value = knobTransforms[dropdownIndex].GetComponentInParent<XRKnobAlt>().jointAngle;
@@ -275,7 +279,7 @@ public class SetupUI : MonoBehaviour
             dropdownIndex = dropdown.value;
             knobID = knobs[dropdownIndex].uniqueID;
             
-            slider.value = knobTransforms[dropdown.value].GetComponentInParent<XRKnobAlt>().jointAngle;
+            slider.value = knobTransforms[dropdownIndex].GetComponentInParent<XRKnobAlt>().jointAngle;
             // Debug.Log("minAngle: " + knobs[dropdownIndex].jointMinAngle + ", maxAngle: " + knobs[dropdownIndex].jointMaxAngle);
             slider.minValue = knobs[dropdownIndex].jointMinAngle;
             slider.maxValue = knobs[dropdownIndex].jointMaxAngle;
