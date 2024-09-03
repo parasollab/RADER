@@ -10,14 +10,18 @@ public class FERL : MonoBehaviour
 {
     public ROSConnection ros;
     public string feedbackRequestTopic = "/feedback_request";
+    public string satisfactionRequestTopic = "/req_satisfied";
     public string feedbackResponseTopic = "/feedback_response";
     public GameObject requestPopup;
+
+    private Button resumeButton;
 
     // Start is called before the first frame update
     void Start()
     {
         ros = ROSConnection.GetOrCreateInstance();
         ros.Subscribe<BoolMsg>(feedbackRequestTopic, onRequestFeedback);
+        ros.Subscribe<BoolMsg>(satisfactionRequestTopic, onRequestSatisfaction);
         ros.RegisterPublisher<BoolMsg>(feedbackResponseTopic);
         LoadPopupOptions();
     }
@@ -32,7 +36,9 @@ public class FERL : MonoBehaviour
 
         GameObject contentGameObject = requestPopup.GetNamedChild("Spatial Panel Scroll").GetNamedChild("Scroll View").GetNamedChild("Viewport").GetNamedChild("Content");
         GameObject resumeButtonObject = contentGameObject.GetNamedChild("Resume Button").GetNamedChild("Text Poke Button");
-        Button resumeButton = resumeButtonObject.GetComponent<Button>();
+        resumeButton = resumeButtonObject.GetComponent<Button>();
+
+        resumeButton.interactable = false; // Disable until we get a satisfaction request
 
         resumeButton.onClick.AddListener(() => {
             sendFeedbackResponse();
@@ -46,6 +52,15 @@ public class FERL : MonoBehaviour
         }
 
         requestPopup.SetActive(true);
+        resumeButton.interactable = false;
+    }
+
+    void onRequestSatisfaction(BoolMsg _request) {
+        if (!_request.data) {
+            return;
+        }
+
+        resumeButton.interactable = true;
     }
 
     void sendFeedbackResponse() {

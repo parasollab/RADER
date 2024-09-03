@@ -70,7 +70,6 @@ public class ProcessUrdf : MonoBehaviour
             setupUI.interactionTopicName = interactionTopic;
             setupUI.knobTransforms = knobs;
             setupUI.knobs = knobObjs;
-            setupUI.jointPositions = jointPositions;
             setupUI.jointNames = jointNames;
             setupUI.menuUI = menuUI;
             Debug.Log("SetupUI done");

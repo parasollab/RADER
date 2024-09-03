@@ -25,7 +25,6 @@ public class SetupUI : MonoBehaviour
     public String interactionTopicName = "/interaction";
     public List<Transform> knobTransforms;
     public List<XRKnobAlt> knobs;
-    public List<double> jointPositions;
     public List<String> jointNames;
     public List<int> jointSigns = new List<int>();
     public float recordInterval = 0.1f;
@@ -125,9 +124,10 @@ public class SetupUI : MonoBehaviour
     {
         if (publishState)
         {
+            List<double> jointPositions = new List<double>();
             for (int i = 0; i < knobTransforms.Count; i++)
             {
-                jointPositions[i] = -knobs[i].jointAngle * Mathf.Deg2Rad;
+                jointPositions.Add(-knobs[i].jointAngle * Mathf.Deg2Rad);
             }
            
             // Publish the joint state message
@@ -384,10 +384,11 @@ public class SetupUI : MonoBehaviour
             }
 
             // List<double> jointAnglesWithinLimits = getJointAnglesWithinLimits();
+            List<double> jointPositions = new List<double>();
             jointTorques = new List<double>();
             for (int i = 0; i < knobTransforms.Count; i++)
             {
-                jointPositions[i] = -knobs[i].jointAngle * Mathf.Deg2Rad;
+                jointPositions.Add(-knobs[i].jointAngle * Mathf.Deg2Rad);
                 
                 // Get the torque from the knob
                 float torque = CalculateTorque(knobTransforms[i]);

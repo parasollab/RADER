@@ -4,6 +4,7 @@ public class CCDIKJoint : MonoBehaviour {
   public Vector3 axis = Vector3.right;
   public Vector3 originalRotation = Vector3.zero;
   public float maxAngle = 360;
+  public float prevAngle = 0;
 
   Vector3 perpendicular; 
   void Start() { 
@@ -23,6 +24,8 @@ public class CCDIKJoint : MonoBehaviour {
 
 
   public void Evaluate(Transform ToolTip, Transform Target, bool rotateToDirection = false) {
+    prevAngle = transform.localEulerAngles.y;
+
     //Rotate the assembly so the tooltip better matches the target position/direction
     transform.rotation = (rotateToDirection ? Quaternion.FromToRotation(ToolTip.up, Target.forward) : Quaternion.FromToRotation(ToolTip.position - transform.position, Target.position - transform.position)) * transform.rotation;
 

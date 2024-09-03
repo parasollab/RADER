@@ -8,6 +8,7 @@ using UnityEngine.XR.Interaction.Toolkit;
 public class SetupIK : MonoBehaviour
 {
     private List<CCDIKJoint> ccdikJoints = new List<CCDIKJoint>();
+    private List<XRKnobAlt> xrKnobs = new List<XRKnobAlt>();
     private GameObject lastChild;
     private GameObject target;
     void Start()
@@ -34,6 +35,7 @@ public class SetupIK : MonoBehaviour
         if(obj.GetComponent<XRKnobAlt>() != null)
         {
             lastChild = obj.gameObject;
+            xrKnobs.Add(obj.GetComponent<XRKnobAlt>());
         }
         if(obj.GetComponent<CCDIKJoint>() != null)
         {
@@ -57,6 +59,7 @@ public class SetupIK : MonoBehaviour
         CCDIK ccdIK = lastChild.AddComponent<CCDIK>();
         
         ccdIK.joints = ccdikJoints.ToArray();
+        ccdIK.knobs = xrKnobs.ToArray();
         ccdIK.Tooltip = findRealLastChild(lastChild.transform);
         ccdIK.Target = target.transform;
 
