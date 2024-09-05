@@ -11,6 +11,7 @@ public class InfoLog : MonoBehaviour
 
     void Start()
     {
+        ros = ROSConnection.GetOrCreateInstance();
         ros.Subscribe<StringMsg>(topicName, PrintLog);
     }
 

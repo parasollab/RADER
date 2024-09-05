@@ -33,6 +33,8 @@ public class ProcessUrdf : MonoBehaviour
     public string mirrorInputTopic = "/physical_joint_state";
     public string stateOutputTopic = "/virtual_joint_state";
     public string interactionTopic = "/interaction";
+    public float demoRecordRate = 0.01f;
+    public float publishStateRate = 0.2f;
     protected List<Transform> knobs = new List<Transform>();
     protected List<XRKnobAlt> knobObjs = new List<XRKnobAlt>();
 
@@ -72,6 +74,8 @@ public class ProcessUrdf : MonoBehaviour
             setupUI.knobs = knobObjs;
             setupUI.jointNames = jointNames;
             setupUI.menuUI = menuUI;
+            setupUI.recordInterval = demoRecordRate;
+            setupUI.publishStateInterval = publishStateRate;
             Debug.Log("SetupUI done");
 
             #if UNITY_EDITOR

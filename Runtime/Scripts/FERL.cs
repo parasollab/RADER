@@ -15,6 +15,7 @@ public class FERL : MonoBehaviour
     public GameObject requestPopup;
 
     private Button resumeButton;
+    private Button closeButton;
 
     // Start is called before the first frame update
     void Start()
@@ -42,6 +43,13 @@ public class FERL : MonoBehaviour
 
         resumeButton.onClick.AddListener(() => {
             sendFeedbackResponse();
+            requestPopup.SetActive(false);
+        });
+
+        GameObject closeButtonObject = contentGameObject.GetNamedChild("Close Button").GetNamedChild("Text Poke Button");
+        closeButton = closeButtonObject.GetComponent<Button>();
+
+        closeButton.onClick.AddListener(() => {
             requestPopup.SetActive(false);
         });
     }

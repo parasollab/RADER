@@ -386,7 +386,7 @@ public class SetupUI : MonoBehaviour
             // List<double> jointAnglesWithinLimits = getJointAnglesWithinLimits();
             List<double> jointPositions = new List<double>();
             jointTorques = new List<double>();
-            for (int i = 0; i < knobTransforms.Count; i++)
+            for (int i = 0; i < 6; i++) // TODO generalize
             {
                 jointPositions.Add(-knobs[i].jointAngle * Mathf.Deg2Rad);
                 
