@@ -14,6 +14,10 @@ using Unity.XR.CoreUtils;
 public class ProcessUrdf : MonoBehaviour
 {
     public GameObject urdfModel;  // Reference to the base of the robot's URDF model
+    public GameObject gripper;  // Reference to the gripper object if any
+    public GameObject graspedObject;  // Reference to the object being grasped if any
+    public Vector3 graspedObjectPosition = Vector3.zero;  // Local position of the grasped object
+    public Vector3 graspedObjectRotation = Vector3.zero;  // Local rotation of the grasped object in Euler angles
 
     public GameObject target;  // Reference to the target object for the CCDIK
     public GameObject menuUI;  // Reference to the meanu UI prefab
@@ -33,11 +37,14 @@ public class ProcessUrdf : MonoBehaviour
     public string mirrorInputTopic = "/physical_joint_state";
     public string stateOutputTopic = "/virtual_joint_state";
     public string interactionTopic = "/interaction";
+    public float demoRecordRate = 0.01f;
+    public float publishStateRate = 0.2f;
     protected List<Transform> knobs = new List<Transform>();
+    protected List<XRKnobAlt> knobObjs = new List<XRKnobAlt>();
 
     private List<double> jointPositions = new List<double>();
 
-    private List<String> jointNames = new List<String>();
+    private List<string> jointNames = new List<string>();
     public bool saveAsPrefab = false;
     private int jointCount = 0;
     private GameObject grabJoint;
@@ -51,15 +58,30 @@ public class ProcessUrdf : MonoBehaviour
         {
             TraverseAndModify(urdfModel);
             reParent();
+
+            GameObject lastChild = reparentingList[reparentingList.Count - 1].Key;
+            GameObject lastLink = findRealLastChild(lastChild);
+            createTarget(lastLink);
+
+            // Instantiate and attach the gripper prefab as a child to the last link
+            if (gripper != null)
+            {
+                TraverseAndModify(gripper);
+                AddGripper(lastLink);
+            }
+
+            // Instantiate and attach the grasped object prefab as a child to the last link
+            if (graspedObject != null)
+            {
+                AddGraspedObject(lastLink);
+            }
+
             SetupGrabBase setupBase = urdfModel.AddComponent<SetupGrabBase>();
             setupBase.Base = grabJoint;
 
-            createTarget(reparentingList[reparentingList.Count - 1].Key);
             urdfModel.AddComponent<SetupIK>();
-            
-
-            Debug.Log("SetupUI Start");
             urdfModel.AddComponent<SetupUI>();
+
             setupUI = urdfModel.GetComponent<SetupUI>();
             setupUI.ros = ros;
             setupUI.trajTopicName = trajectoryTopic;
@@ -67,16 +89,39 @@ public class ProcessUrdf : MonoBehaviour
             setupUI.inputStateTopicName = mirrorInputTopic;
             setupUI.outputStateTopicName = stateOutputTopic;
             setupUI.interactionTopicName = interactionTopic;
-            setupUI.knobs = knobs;
-            setupUI.jointPositions = jointPositions;
+            setupUI.knobTransforms = knobs;
+            setupUI.knobs = knobObjs;
             setupUI.jointNames = jointNames;
             setupUI.menuUI = menuUI;
+            setupUI.recordInterval = demoRecordRate;
+            setupUI.publishStateInterval = publishStateRate;
+            
             Debug.Log("SetupUI done");
 
             #if UNITY_EDITOR
             savePrefab(urdfModel.name);
             #endif
         }
+    }
+
+    void AddGripper(GameObject lastLink)
+    {
+        // Instantiate the gripper prefab and attach it to the last link
+        GameObject gripperInstance = Instantiate(gripper, lastLink.transform.position, lastLink.transform.rotation);
+        gripperInstance.name = "Gripper"; // Optional: Rename the gripper instance
+        gripperInstance.transform.SetParent(lastLink.transform);
+        gripperInstance.transform.localPosition = Vector3.zero;
+        gripperInstance.transform.localRotation = Quaternion.identity;
+    }
+
+    void AddGraspedObject(GameObject lastLink)
+    {
+        // Instantiate the grasped object prefab and attach it to the last link
+        GameObject graspedObjectInstance = Instantiate(graspedObject, lastLink.transform.position, lastLink.transform.rotation);
+        graspedObjectInstance.name = "GraspedObject"; // Optional: Rename the grasped object instance
+        graspedObjectInstance.transform.SetParent(lastLink.transform);
+        graspedObjectInstance.transform.localPosition = graspedObjectPosition;  // These fields can be edited in the Unity Inspector
+        graspedObjectInstance.transform.localRotation = Quaternion.Euler(graspedObjectRotation);
     }
 
     void TraverseAndModify(GameObject obj)
@@ -109,9 +154,15 @@ public class ProcessUrdf : MonoBehaviour
         {
             jointCount++;
             bool isClampedMotion = articulationBody.xDrive.upperLimit - articulationBody.xDrive.lowerLimit < 360;
+            // bool isClampedMotion = (articulationBody.xDrive.upperLimit != 0) && (articulationBody.xDrive.lowerLimit != 0);
             Tuple<float, float> jointLimit = new Tuple<float, float>(articulationBody.xDrive.lowerLimit, articulationBody.xDrive.upperLimit);
+            // Debug.LogAssertion("Joint " + obj.name + " has 0 range of motion, setting to 360");
+            // Debug.LogError("Joint " + obj.name + " upper limit: " + articulationBody.xDrive.upperLimit + " lower limit: " + articulationBody.xDrive.lowerLimit);
+            // Debug.LogError("Joint " + obj.name + " isClampedMotion: " + isClampedMotion);
+
 
             if (articulationBody.xDrive.upperLimit - articulationBody.xDrive.lowerLimit == 0 && articulationBody.jointType == ArticulationJointType.RevoluteJoint) {
+                // Debug.LogError("Joint " + obj.name + " has 0 range of motion, setting to 360");
                 isClampedMotion = false;
                 jointLimit = new Tuple<float, float>(0, 360);
             }
@@ -144,7 +195,6 @@ public class ProcessUrdf : MonoBehaviour
 
     void reParent()
     {
-
         for (int i = reparentingList.Count - 1; i >= 0; i--)
         {
             var pair = reparentingList[i];
@@ -159,8 +209,8 @@ public class ProcessUrdf : MonoBehaviour
             child.transform.parent = knobParent.transform;
 
             // zero out child's local position and rotation
-            child.transform.localPosition = Vector3.zero;
-            child.transform.localRotation = Quaternion.identity;
+            // child.transform.localPosition = Vector3.zero;
+            // child.transform.localRotation = Quaternion.identity;
 
             // // Add CCDIK components to the child, and add references to the list
             CCDIKJoint ccdik = child.AddComponent<CCDIKJoint>();
@@ -170,17 +220,24 @@ public class ProcessUrdf : MonoBehaviour
 
             // // Add the XRKnobAlt
             XRKnobAlt knob = knobParent.AddComponent<XRKnobAlt>();
-            knob.clampedMotion = clampedMotionList[i];
-            knob.minAngle = jointLimits[i].Item1;
-            knob.maxAngle = jointLimits[i].Item2;
+            knob.uniqueID = i;
+            // knob.clampedMotion = clampedMotionList[i];
+            knob.jointMinAngle = jointLimits[i].Item1;
+            knob.jointMaxAngle = jointLimits[i].Item2;
+
+            // Debug.LogError("Parent " + knobParent.name + " Joint " + knob.name + " upper limit: " + knob.maxAngle + " lower limit: " + knob.minAngle);
+
 
             knob.handle = child.transform;
             
             createInteractionAffordance(child, knob, knobParent);
 
             // Use .Prepend to reverse the joint order
+            knobObjs.Insert(0, knob);
             knobs.Add(child.transform);
             jointPositions.Add(child.transform.localRotation.eulerAngles.y);
+
+            // Debug.Log(child.name + " " + child.transform.localRotation.eulerAngles.y);
 
             // // Check for MeshCollider on the child or its descendants
             MeshCollider meshCollider = child.GetComponent<MeshCollider>();
@@ -196,6 +253,7 @@ public class ProcessUrdf : MonoBehaviour
                 knob.colliders.Add(meshCollider);
             }
         }
+        jointNames.Reverse();
     }
 
     void createInteractionAffordance(GameObject child, XRKnobAlt knob, GameObject knobParent)
@@ -223,13 +281,12 @@ public class ProcessUrdf : MonoBehaviour
             materialPropertyBlockHelper.enabled = true;
     }
 
-    void createTarget(GameObject lastChild)
+    void createTarget(GameObject lastLink)
     {
-        GameObject realLastChild = findRealLastChild(lastChild);
         // create target object for the last child
-        GameObject target = Instantiate(this.target, realLastChild.transform.position, realLastChild.transform.rotation);
+        GameObject target = Instantiate(this.target, lastLink.transform.position, lastLink.transform.rotation);
         target.name = "target";
-        target.transform.SetParent(realLastChild.transform);
+        target.transform.SetParent(lastLink.transform);
         target.transform.localPosition = Vector3.zero;
         target.transform.localRotation = Quaternion.identity;
 
