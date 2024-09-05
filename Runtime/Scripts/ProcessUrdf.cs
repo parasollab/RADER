@@ -14,6 +14,10 @@ using Unity.XR.CoreUtils;
 public class ProcessUrdf : MonoBehaviour
 {
     public GameObject urdfModel;  // Reference to the base of the robot's URDF model
+    public GameObject gripper;  // Reference to the gripper object if any
+    public GameObject graspedObject;  // Reference to the object being grasped if any
+    public Vector3 graspedObjectPosition = Vector3.zero;  // Local position of the grasped object
+    public Vector3 graspedObjectRotation = Vector3.zero;  // Local rotation of the grasped object in Euler angles
 
     public GameObject target;  // Reference to the target object for the CCDIK
     public GameObject menuUI;  // Reference to the meanu UI prefab
@@ -40,7 +44,7 @@ public class ProcessUrdf : MonoBehaviour
 
     private List<double> jointPositions = new List<double>();
 
-    private List<String> jointNames = new List<String>();
+    private List<string> jointNames = new List<string>();
     public bool saveAsPrefab = false;
     private int jointCount = 0;
     private GameObject grabJoint;
@@ -54,15 +58,30 @@ public class ProcessUrdf : MonoBehaviour
         {
             TraverseAndModify(urdfModel);
             reParent();
+
+            GameObject lastChild = reparentingList[reparentingList.Count - 1].Key;
+            GameObject lastLink = findRealLastChild(lastChild);
+            createTarget(lastLink);
+
+            // Instantiate and attach the gripper prefab as a child to the last link
+            if (gripper != null)
+            {
+                TraverseAndModify(gripper);
+                AddGripper(lastLink);
+            }
+
+            // Instantiate and attach the grasped object prefab as a child to the last link
+            if (graspedObject != null)
+            {
+                AddGraspedObject(lastLink);
+            }
+
             SetupGrabBase setupBase = urdfModel.AddComponent<SetupGrabBase>();
             setupBase.Base = grabJoint;
 
-            createTarget(reparentingList[reparentingList.Count - 1].Key);
             urdfModel.AddComponent<SetupIK>();
-            
-
-            Debug.Log("SetupUI Start");
             urdfModel.AddComponent<SetupUI>();
+
             setupUI = urdfModel.GetComponent<SetupUI>();
             setupUI.ros = ros;
             setupUI.trajTopicName = trajectoryTopic;
@@ -76,12 +95,33 @@ public class ProcessUrdf : MonoBehaviour
             setupUI.menuUI = menuUI;
             setupUI.recordInterval = demoRecordRate;
             setupUI.publishStateInterval = publishStateRate;
+            
             Debug.Log("SetupUI done");
 
             #if UNITY_EDITOR
             savePrefab(urdfModel.name);
             #endif
         }
+    }
+
+    void AddGripper(GameObject lastLink)
+    {
+        // Instantiate the gripper prefab and attach it to the last link
+        GameObject gripperInstance = Instantiate(gripper, lastLink.transform.position, lastLink.transform.rotation);
+        gripperInstance.name = "Gripper"; // Optional: Rename the gripper instance
+        gripperInstance.transform.SetParent(lastLink.transform);
+        gripperInstance.transform.localPosition = Vector3.zero;
+        gripperInstance.transform.localRotation = Quaternion.identity;
+    }
+
+    void AddGraspedObject(GameObject lastLink)
+    {
+        // Instantiate the grasped object prefab and attach it to the last link
+        GameObject graspedObjectInstance = Instantiate(graspedObject, lastLink.transform.position, lastLink.transform.rotation);
+        graspedObjectInstance.name = "GraspedObject"; // Optional: Rename the grasped object instance
+        graspedObjectInstance.transform.SetParent(lastLink.transform);
+        graspedObjectInstance.transform.localPosition = graspedObjectPosition;  // These fields can be edited in the Unity Inspector
+        graspedObjectInstance.transform.localRotation = Quaternion.Euler(graspedObjectRotation);
     }
 
     void TraverseAndModify(GameObject obj)
@@ -241,13 +281,12 @@ public class ProcessUrdf : MonoBehaviour
             materialPropertyBlockHelper.enabled = true;
     }
 
-    void createTarget(GameObject lastChild)
+    void createTarget(GameObject lastLink)
     {
-        GameObject realLastChild = findRealLastChild(lastChild);
         // create target object for the last child
-        GameObject target = Instantiate(this.target, realLastChild.transform.position, realLastChild.transform.rotation);
+        GameObject target = Instantiate(this.target, lastLink.transform.position, lastLink.transform.rotation);
         target.name = "target";
-        target.transform.SetParent(realLastChild.transform);
+        target.transform.SetParent(lastLink.transform);
         target.transform.localPosition = Vector3.zero;
         target.transform.localRotation = Quaternion.identity;
 
