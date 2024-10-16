@@ -111,9 +111,9 @@ public class ProcessUrdf : MonoBehaviour
         gripperInstance.name = "Gripper"; // Optional: Rename the gripper instance
         gripperInstance.transform.SetParent(lastLink.transform);
         gripperInstance.transform.localPosition = Vector3.zero;
-        gripperInstance.transform.localRotation = Quaternion.identity;
 
-        return gripperInstance;
+        // Rotate the gripper by 90 degrees around the y-axis
+        gripperInstance.transform.localRotation = Quaternion.Euler(0, 90, 0);
     }
 
     void AddGraspedObject(GameObject lastLink)
