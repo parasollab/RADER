@@ -66,8 +66,8 @@ public class ProcessUrdf : MonoBehaviour
             // Instantiate and attach the gripper prefab as a child to the last link
             if (gripper != null)
             {
-                TraverseAndModify(gripper);
-                AddGripper(lastLink);
+                GameObject gripperInstance = AddGripper(lastLink);
+                TraverseAndModify(gripperInstance);
             }
 
             // Instantiate and attach the grasped object prefab as a child to the last link
@@ -104,7 +104,7 @@ public class ProcessUrdf : MonoBehaviour
         }
     }
 
-    void AddGripper(GameObject lastLink)
+    GameObject AddGripper(GameObject lastLink)
     {
         // Instantiate the gripper prefab and attach it to the last link
         GameObject gripperInstance = Instantiate(gripper, lastLink.transform.position, lastLink.transform.rotation);
@@ -114,6 +114,7 @@ public class ProcessUrdf : MonoBehaviour
 
         // Rotate the gripper by 90 degrees around the y-axis
         gripperInstance.transform.localRotation = Quaternion.Euler(0, 90, 0);
+        return gripperInstance;
     }
 
     void AddGraspedObject(GameObject lastLink)
