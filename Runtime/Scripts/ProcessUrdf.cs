@@ -114,6 +114,7 @@ public class ProcessUrdf : MonoBehaviour
 
         // Rotate the gripper by 90 degrees around the y-axis
         gripperInstance.transform.localRotation = Quaternion.Euler(0, 90, 0);
+        return gripperInstance;
     }
 
     void AddGraspedObject(GameObject lastLink)
