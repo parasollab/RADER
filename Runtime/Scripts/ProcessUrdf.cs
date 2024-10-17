@@ -63,6 +63,10 @@ public class ProcessUrdf : MonoBehaviour
             GameObject lastLink = findRealLastChild(lastChild);
             createTarget(lastLink);
 
+            urdfModel.AddComponent<SetupGrabBase>();
+            SetupGrabBase setupBase = urdfModel.GetComponent<SetupGrabBase>();
+            setupBase.Base = grabJoint;
+
             // Instantiate and attach the gripper prefab as a child to the last link
             if (gripper != null)
             {
@@ -75,9 +79,6 @@ public class ProcessUrdf : MonoBehaviour
             {
                 AddGraspedObject(lastLink);
             }
-
-            SetupGrabBase setupBase = urdfModel.AddComponent<SetupGrabBase>();
-            setupBase.Base = grabJoint;
 
             urdfModel.AddComponent<SetupIK>();
             urdfModel.AddComponent<SetupUI>();
@@ -190,8 +191,14 @@ public class ProcessUrdf : MonoBehaviour
                 clampedMotionList.Add(isClampedMotion);
                 jointLimits.Add(jointLimit);
             }
-            if(jointCount == 2)  grabJoint = obj;
 
+            if (grabJoint == null) {
+                MeshCollider meshCollider = obj.GetComponentInChildren<MeshCollider>();
+                if (meshCollider != null) {
+                    grabJoint = obj;
+                }
+
+            }
         }
     }
 
