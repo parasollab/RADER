@@ -387,7 +387,6 @@ public class SetupUI : MonoBehaviour
             Debug.Log("setHomeButton.onClick");
             Debug.Log(processUrdf);
             processUrdf.SetHomePosition();
-            setHomeButtonText.text = "Home is Set!";
         });
 
         goHomeButtonObject = contentGameObject.GetNamedChild("Reset to Home Button").GetNamedChild("Text Poke Button");
@@ -398,7 +397,6 @@ public class SetupUI : MonoBehaviour
         {
             Debug.Log("goHomeButton.onClick");
             processUrdf.ResetHomePosition();
-            goHomeButtonText.text = "Going Home!";
         });
     }
 
