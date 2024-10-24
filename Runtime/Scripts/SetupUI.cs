@@ -48,10 +48,13 @@ public class SetupUI : MonoBehaviour
     private GameObject mirrorButtonObject;
     private GameObject publishStateButtonObject;
 
+    private GameObject setHomeButtonObject;
+    private GameObject goHomeButtonObject;
+
     private List<double> jointTorques;
     private Dictionary<Transform, float> previousAngles = new Dictionary<Transform, float>();
     private Dictionary<Transform, float> momentsOfInertia = new Dictionary<Transform, float>();
-
+    public ProcessUrdf processUrdf;
     void Start()
     {
         Debug.Log("SetupUI Start");
@@ -372,6 +375,31 @@ public class SetupUI : MonoBehaviour
         });
 
         InvokeRepeating("PublishState", 1.0f, publishStateInterval);
+
+
+        // Set home and Go home
+        setHomeButtonObject = contentGameObject.GetNamedChild("Set Home Button").GetNamedChild("Text Poke Button");
+        Button setHomeButton = setHomeButtonObject.GetComponent<Button>();
+        TextMeshProUGUI setHomeButtonText = setHomeButtonObject.GetNamedChild("Button Front").GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
+
+        setHomeButton.onClick.AddListener(() =>
+        {
+            Debug.Log("setHomeButton.onClick");
+            Debug.Log(processUrdf);
+            processUrdf.SetHomePosition();
+            setHomeButtonText.text = "Home is Set!";
+        });
+
+        goHomeButtonObject = contentGameObject.GetNamedChild("Reset to Home Button").GetNamedChild("Text Poke Button");
+        Button goHomeButton = goHomeButtonObject.GetComponent<Button>();
+        TextMeshProUGUI goHomeButtonText = goHomeButtonObject.GetNamedChild("Button Front").GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
+
+        goHomeButton.onClick.AddListener(() =>
+        {
+            Debug.Log("goHomeButton.onClick");
+            processUrdf.ResetHomePosition();
+            goHomeButtonText.text = "Going Home!";
+        });
     }
 
     void addJointPosition()
