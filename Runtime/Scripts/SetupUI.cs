@@ -12,6 +12,9 @@ using RosMessageTypes.Std;
 using RosMessageTypes.Sensor;
 using RosMessageTypes.Hri;
 using UnityEngine.Assertions;
+using System.Drawing;
+using System.Linq;
+using System.Collections;
 // using System.Diagnostics;
 
 public class SetupUI : MonoBehaviour
@@ -37,6 +40,7 @@ public class SetupUI : MonoBehaviour
     private bool mirrorInputState = false;
     // private bool mirrorInputState = true;
     private bool publishState = true;
+    private List<JointTrajectoryMsg> trajectoryLog = new List<JointTrajectoryMsg>();
 
     private GameObject startButtonObject;
     private GameObject goalButtonObject;
@@ -433,6 +437,9 @@ public class SetupUI : MonoBehaviour
         jointTrajectory.joint_names = jointNames.ToArray();
         jointTrajectory.points = jointTrajectoryPoints.ToArray();
         ros.Publish(trajTopicName, jointTrajectory);
+        trajectoryLog.Add(jointTrajectory);
+
+        StartCoroutine(playTrajectory(jointTrajectory));
 
         // Clear the jointTrajectoryPoints list
         resetJointPositionMessage();
@@ -458,5 +465,65 @@ public class SetupUI : MonoBehaviour
     {
         jointTrajectoryPoints.Clear();
         recordStartTime = 0;
+    }
+
+    IEnumerator playTrajectory(JointTrajectoryMsg trajectory) {
+        JointTrajectoryPointMsg[] points = trajectory.points;
+        double prevTime = durationToDouble(points[0].time_from_start);
+        double[] prevPos = points[0].positions;
+
+        for (int i = 0; i < prevPos.Length; i++) {
+            prevPos[i] = -1 * (prevPos[i] * Mathf.Rad2Deg);
+        }
+
+        for (int i = 0; i < points.Length; i++) {
+            double[] positions = points[i].positions;
+            for (int j = 0; j < positions.Length; j++) {
+                positions[j] = -1 * (positions[j] * Mathf.Rad2Deg);
+            }
+
+            double currTime = durationToDouble(points[i].time_from_start);
+            double movingTime = currTime - prevTime;
+
+            if (positions.Length != knobs.Count) break;
+
+            yield return StartCoroutine(MoveKnobsOverTime(prevPos, positions, movingTime));
+
+            prevPos = positions;
+            prevTime = currTime;
+        }
+    }
+
+    IEnumerator MoveKnobsOverTime(double[] startPositions, double[] endPositions, double duration) {
+        float elapsedTime = 0;
+
+        if (duration <= 0) duration = 0.01f;
+
+        while (elapsedTime < duration) {
+            elapsedTime += Time.deltaTime;
+            // float t = Mathf.Clamp01((float)(elapsedTime / duration));
+
+            for (int j = knobs.Count - 1; j >= 0; j--) {
+                // float newPos = Mathf.Lerp((float)startPositions[j], (float)endPositions[j], (float)duration);
+                // knobs[j].jointAngle = newPos;
+                Mathf.Lerp((float)startPositions[j], (float)endPositions[j], (float)duration);
+            }
+            yield return null;
+        }
+
+        for (int j = 0; j < knobs.Count; j++) {
+            knobs[j].jointAngle = (float)endPositions[j];
+        }
+    }
+
+    double durationToDouble(DurationMsg duration)
+    {
+        return duration.sec + (duration.nanosec * 0.000000001);
+    }
+
+
+    void resetTrajectoryLog()
+    {
+        trajectoryLog.Clear();
     }
 }
