@@ -73,6 +73,7 @@ public class SetupIK : MonoBehaviour
 
         grabInteractable.selectExited.AddListener((SelectExitEventArgs interactor) => {
             ccdIK.active = false;
+            target.transform.position = lastChild.transform.position;
         });
     }
 

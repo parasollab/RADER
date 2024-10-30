@@ -45,6 +45,7 @@ public class ProcessUrdf : MonoBehaviour
     private List<double> jointPositions = new List<double>();
 
     private List<string> jointNames = new List<string>();
+    private List<GameObject> jointList = new List<GameObject>();
     public bool saveAsPrefab = false;
     private int jointCount = 0;
     private GameObject grabJoint;
@@ -84,6 +85,7 @@ public class ProcessUrdf : MonoBehaviour
             urdfModel.AddComponent<SetupUI>();
 
             setupUI = urdfModel.GetComponent<SetupUI>();
+            setupUI.processUrdf = this;
             setupUI.ros = ros;
             setupUI.trajTopicName = trajectoryTopic;
             setupUI.queryTopicName = queryTopic;
@@ -132,6 +134,12 @@ public class ProcessUrdf : MonoBehaviour
     {
         if (obj == null) return;
 
+        string name = obj.name;
+        // check if link in name
+        if (name.Contains("link"))
+        {
+            obj.name = name.Replace("link", "joint");
+        }
         // Process the current object
         RemoveAndModifyComponents(obj);
         
@@ -211,6 +219,7 @@ public class ProcessUrdf : MonoBehaviour
             GameObject child = pair.Key;
             GameObject knobParent = pair.Value;
             jointNames.Add(child.name);
+            jointList.Add(child);
 
             knobParent.transform.position = child.transform.position;
             knobParent.transform.rotation = child.transform.rotation;
@@ -264,6 +273,22 @@ public class ProcessUrdf : MonoBehaviour
             }
         }
         jointNames.Reverse();
+    }
+
+    public void SetHomePosition() // set current joint positions as home position
+    {
+        for (int i = 0; i < jointList.Count; i++)
+        {
+            jointPositions[i] = jointList[i].transform.localRotation.eulerAngles.y;
+        }
+    }
+
+    public void ResetHomePosition() // reset joint positions to home position
+    {
+        for (int i = 0; i < jointList.Count; i++)
+        {
+            jointList[i].transform.localRotation = Quaternion.Euler(0, (float)jointPositions[i], 0);
+        }
     }
 
     void createInteractionAffordance(GameObject child, XRKnobAlt knob, GameObject knobParent)
