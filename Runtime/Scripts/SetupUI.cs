@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.InputSystem;
+
 using TMPro;
 using Unity.VRTemplate;
 using Unity.XR.CoreUtils;
-using UnityEngine;
 using UnityEngine.UI;
 using Unity.Robotics.ROSTCPConnector;
 using RosMessageTypes.Trajectory;
@@ -11,11 +13,15 @@ using RosMessageTypes.BuiltinInterfaces;
 using RosMessageTypes.Std;
 using RosMessageTypes.Sensor;
 using RosMessageTypes.Hri;
+
 using UnityEngine.Assertions;
+using UnityEngine.InputSystem.Interactions;
+
 // using System.Diagnostics;
 
 public class SetupUI : MonoBehaviour
 {
+    
     public ROSConnection ros;
     public GameObject menuUI;
     public String trajTopicName = "/joint_trajectory";
@@ -30,6 +36,13 @@ public class SetupUI : MonoBehaviour
     public float recordInterval = 0.1f;
     public float publishStateInterval = 0.2f;
 
+    public InputActionReference pressA = null;
+    public InputActionReference pressB = null;
+
+    public InputActionReference pressX = null;
+
+    public InputActionReference pressY = null;
+
     private bool recordROS = false;
     private List<double> startPositions;
     private List<double> goalPositions;
@@ -39,13 +52,24 @@ public class SetupUI : MonoBehaviour
     private bool publishState = true;
 
     private GameObject startButtonObject;
+
+    private GameObject discardButtonObject;
+
+    private Button discardButton;
+
     private GameObject goalButtonObject;
     private GameObject queryButtonObject;
 
     private GameObject recordButtonObject;
+
+    private Button recordButton;
+
     private int recordStartTime;
 
     private GameObject mirrorButtonObject;
+
+    private Button mirrorButton;
+
     private GameObject publishStateButtonObject;
 
     private List<double> jointTorques;
@@ -62,10 +86,21 @@ public class SetupUI : MonoBehaviour
         ros.RegisterPublisher<BoolMsg>(interactionTopicName);
         ros.Subscribe<JointStateMsg>(inputStateTopicName, MirrorStateCallback);
 
+        pressA.action.started += SimulateRecordButtonClick;
+        pressB.action.started += SimulateDiscardButtonClick;
+        pressX.action.started += SimulateMirrorButtonClick;
+        
         LoadUI();
         
         InitializeKnobData();
+
+
+
+        //pressY.Enable();
+
     }
+
+
 
     void InitializeKnobData()
     {
@@ -196,7 +231,7 @@ public class SetupUI : MonoBehaviour
         ros.Publish(queryTopicName, jointQuery);
 
         // Also enable the record button
-        Button recordButton = recordButtonObject.GetComponent<Button>();
+        recordButton = recordButtonObject.GetComponent<Button>();
         recordButton.interactable = true;
     }
 
@@ -213,12 +248,12 @@ public class SetupUI : MonoBehaviour
 
         // Record button
         recordButtonObject = contentGameObject.GetNamedChild("Record Button").GetNamedChild("Text Poke Button");
-        Button button = recordButtonObject.GetComponent<Button>();
+        recordButton = recordButtonObject.GetComponent<Button>();
         TextMeshProUGUI buttonText = recordButtonObject.GetNamedChild("Button Front").GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
 
         // Discard button
-        GameObject discardButtonObject = contentGameObject.GetNamedChild("Discard Button").GetNamedChild("Text Poke Button");
-        Button discardButton = discardButtonObject.GetComponent<Button>();
+        discardButtonObject = contentGameObject.GetNamedChild("Discard Button").GetNamedChild("Text Poke Button");
+        discardButton = discardButtonObject.GetComponent<Button>();
         
         discardButton.onClick.AddListener(() =>
         {
@@ -234,7 +269,7 @@ public class SetupUI : MonoBehaviour
 
         // Record button functionality
 
-        button.onClick.AddListener(() =>
+        recordButton.onClick.AddListener(() =>
         {
             if (recordROS == true)
             {
@@ -255,7 +290,7 @@ public class SetupUI : MonoBehaviour
         });
 
         // (Don't) Disable the button until a query is sent
-        button.interactable = true;
+        recordButton.interactable = true;
 
         // dropdown and slider
         TMP_Dropdown dropdown = contentGameObject.GetNamedChild("List Item Dropdown").GetNamedChild("Dropdown").GetComponent<TMP_Dropdown>();
@@ -334,7 +369,7 @@ public class SetupUI : MonoBehaviour
 
         // Mirror input button
         mirrorButtonObject = contentGameObject.GetNamedChild("Mirror Input Button").GetNamedChild("Text Poke Button");
-        Button mirrorButton = mirrorButtonObject.GetComponent<Button>();
+        mirrorButton = mirrorButtonObject.GetComponent<Button>();
         TextMeshProUGUI mirrorButtonText = mirrorButtonObject.GetNamedChild("Button Front").GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
 
         mirrorButton.onClick.AddListener(() =>
@@ -459,4 +494,79 @@ public class SetupUI : MonoBehaviour
         jointTrajectoryPoints.Clear();
         recordStartTime = 0;
     }
+
+   private void SimulateRecordButtonClick(InputAction.CallbackContext context)
+{
+    // recordButton = recordButtonObject.GetComponent<Button>();
+    // print("A");
+    recordButton.onClick.Invoke();
+}
+   private void SimulateDiscardButtonClick(InputAction.CallbackContext context)
+{
+    // discardButton = discardButtonObject.GetComponent<Button>();
+    // print("B");
+    discardButton.onClick.Invoke();
+
+}
+    private void SimulateMirrorButtonClick(InputAction.CallbackContext context)
+{
+    // mirrorButton = mirrorButtonObject.GetComponent<Button>();
+    // print("X");
+    mirrorButton.onClick.Invoke();
+
+}
+
+// private void OnEnable()
+//     {
+//         // Enable the Input Actions
+//         var actionMap = inputActions.FindActionMap("ControllerActions");
+        
+//         pressA = actionMap.FindAction("PressA");
+//         pressB = actionMap.FindAction("PressB");
+//         pressX = actionMap.FindAction("PressX");
+//         pressY = actionMap.FindAction("PressY");
+
+//         pressA.Enable();
+//         pressB.Enable();
+//         pressX.Enable();
+//         pressY.Enable();
+
+//         pressA.performed += OnPressA;
+//         pressB.performed += OnPressB;
+//         pressX.performed += OnPressX;
+//         pressY.performed += OnPressY;
+//     }
+
+//     private void OnDisable()
+//     {
+//         // Disable the Input Actions
+//         pressA.Disable();
+//         pressB.Disable();
+//         pressX.Disable();
+//         pressY.Disable();
+//     }
+
+    // private void OnPressA(InputAction.CallbackContext context)
+    // {
+    //     Debug.Log("A Button Pressed");
+        
+    // }
+
+    // private void OnPressB(InputAction.CallbackContext context)
+    // {
+    //     Debug.Log("B Button Pressed");
+    // }
+
+    // private void OnPressX(InputAction.CallbackContext context)
+    // {
+    //     Debug.Log("X Button Pressed");
+    // }
+
+    // private void OnPressY(InputAction.CallbackContext context)
+    // {
+    //     Debug.Log("Y Button Pressed");
+    // }
+
+
+
 }
