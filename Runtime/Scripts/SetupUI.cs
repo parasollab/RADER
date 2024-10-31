@@ -47,7 +47,7 @@ public class SetupUI : MonoBehaviour
     private GameObject queryButtonObject;
 
     private GameObject recordButtonObject;
-    private int recordStartTime;
+    private float recordStartTime;
 
     private GameObject mirrorButtonObject;
     private GameObject publishStateButtonObject;
@@ -408,28 +408,32 @@ public class SetupUI : MonoBehaviour
     {
         if (recordROS)
         {
-            if (recordStartTime == 0)
+            if (recordStartTime == 0f)
             {
-                recordStartTime = (int)Time.time;
+                recordStartTime = Time.time;
             }
 
-            // List<double> jointAnglesWithinLimits = getJointAnglesWithinLimits();
             List<double> jointPositions = new List<double>();
             jointTorques = new List<double>();
-            for (int i = 0; i < 6; i++) // TODO generalize
+            for (int i = 0; i < knobs.Count; i++) 
             {
                 jointPositions.Add(-knobs[i].jointAngle * Mathf.Deg2Rad);
-                
+
                 // Get the torque from the knob
                 float torque = CalculateTorque(knobTransforms[i]);
                 jointTorques.Add(torque);
             }
 
+            // Calculate the precise time from start
+            float timeFromStart = Time.time - recordStartTime;
+            int secs = (int)Math.Floor(timeFromStart);
+            uint nsecs = (uint)((timeFromStart - secs) * 1e9);
+
             JointTrajectoryPointMsg jointTrajectoryPoint = new JointTrajectoryPointMsg
             {
                 positions = jointPositions.ToArray(),
                 effort = jointTorques.ToArray(),
-                time_from_start = new DurationMsg((int)Time.time - recordStartTime, 0),
+                time_from_start = new DurationMsg(secs, nsecs),
             };
             jointTrajectoryPoints.Add(jointTrajectoryPoint);
         }
@@ -498,12 +502,14 @@ public class SetupUI : MonoBehaviour
         double prevTime = durationToDouble(points[0].time_from_start);
         double[] prevPos = points[0].positions;
 
+
         for (int i = 0; i < prevPos.Length; i++) {
             prevPos[i] = -1 * (prevPos[i] * Mathf.Rad2Deg);
         }
 
-        for (int i = 0; i < points.Length; i++) {
+        for (int i = 1; i < points.Length; i++) { // Start from 1 since 0 is already in prevPos
             double[] positions = points[i].positions;
+
             for (int j = 0; j < positions.Length; j++) {
                 positions[j] = -1 * (positions[j] * Mathf.Rad2Deg);
             }
@@ -511,7 +517,10 @@ public class SetupUI : MonoBehaviour
             double currTime = durationToDouble(points[i].time_from_start);
             double movingTime = currTime - prevTime;
 
-            if (positions.Length != knobs.Count) break;
+            if (positions.Length != knobs.Count) {
+                Debug.LogError("Positions array length does not match knobs count.");
+                yield break;
+            }
 
             yield return StartCoroutine(MoveKnobsOverTime(prevPos, positions, movingTime));
 
@@ -521,25 +530,25 @@ public class SetupUI : MonoBehaviour
     }
 
     IEnumerator MoveKnobsOverTime(double[] startPositions, double[] endPositions, double duration) {
-        float elapsedTime = 0;
+        float elapsedTime = 0f;
 
-        if (duration <= 0) duration = 0.01f;
+        if (duration <= 0f) duration = 0.000001f; 
 
         while (elapsedTime < duration) {
             elapsedTime += Time.deltaTime;
-            // float t = Mathf.Clamp01((float)(elapsedTime / duration));
+            float t = Mathf.Clamp01((float)(elapsedTime / duration)); // scaling to 0-1 range
 
-            for (int j = knobs.Count - 1; j >= 0; j--) {
-                // float newPos = Mathf.Lerp((float)startPositions[j], (float)endPositions[j], (float)duration);
-                // knobs[j].jointAngle = newPos;
-                Mathf.Lerp((float)startPositions[j], (float)endPositions[j], (float)duration);
+            for (int j = 0; j < knobs.Count; j++) {
+                float newPos = Mathf.Lerp((float)startPositions[j], (float)endPositions[j], t);
+                knobs[j].jointAngle = newPos;
             }
             yield return null;
         }
 
-        for (int j = 0; j < knobs.Count; j++) {
-            knobs[j].jointAngle = (float)endPositions[j];
-        }
+
+        // for (int j = 0; j < knobs.Count; j++) {
+        //     knobs[j].jointAngle = (float)endPositions[j];
+        // }
     }
 
     double durationToDouble(DurationMsg duration)
