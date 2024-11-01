@@ -59,7 +59,7 @@ public class SetupUI : MonoBehaviour
     private Dictionary<Transform, float> previousAngles = new Dictionary<Transform, float>();
     private Dictionary<Transform, float> momentsOfInertia = new Dictionary<Transform, float>();
     public ProcessUrdf processUrdf;
-    private JointTrajectoryMsg lastTrajectory;
+    private JointTrajectoryMsg lastTrajectory = null;
     void Start()
     {
         Debug.Log("SetupUI Start");
@@ -240,6 +240,18 @@ public class SetupUI : MonoBehaviour
 
         discardButton.interactable = false;
 
+        // Replay Button
+        GameObject replayButtonObject = contentGameObject.GetNamedChild("Replay Button").GetNamedChild("Text Poke Button");
+        Button replayButton = replayButtonObject.GetComponent<Button>();
+
+        replayButton.onClick.AddListener(() =>
+        {
+            if (lastTrajectory != null)
+            {
+                StartCoroutine(playTrajectory(lastTrajectory));
+            }
+        });
+
         // Record button functionality
 
         button.onClick.AddListener(() =>
@@ -406,14 +418,7 @@ public class SetupUI : MonoBehaviour
 
 
 
-        // replay trajectory
-        GameObject replayButtonObject = contentGameObject.GetNamedChild("Replay Button").GetNamedChild("Text Poke Button");
-        Button replayButton = replayButtonObject.GetComponent<Button>();
-        replayButton.onClick.AddListener(() =>
-        {
-            StartCoroutine(playTrajectory(lastTrajectory));
-        });
-        
+
     }
 
     void addJointPosition()
