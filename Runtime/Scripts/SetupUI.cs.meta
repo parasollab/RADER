@@ -3,7 +3,14 @@ guid: 3851559121ddd4d6db5830b3029b55ca
 MonoImporter:
   externalObjects: {}
   serializedVersion: 2
-  defaultReferences: []
+  defaultReferences:
+  - ros: {instanceID: 0}
+  - menuUI: {instanceID: 0}
+  - pressA: {fileID: 283788079173368504, guid: c348712bda248c246b8c49b3db54643f, type: 3}
+  - pressB: {fileID: 4961026277219030967, guid: c348712bda248c246b8c49b3db54643f, type: 3}
+  - pressX: {fileID: 2044747989600321364, guid: c348712bda248c246b8c49b3db54643f, type: 3}
+  - pressY: {fileID: -466683171150549540, guid: c348712bda248c246b8c49b3db54643f, type: 3}
+  - processUrdf: {instanceID: 0}
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 
