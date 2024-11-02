@@ -520,18 +520,20 @@ public class SetupUI : MonoBehaviour
     IEnumerator playTrajectory(JointTrajectoryMsg trajectory) {
         JointTrajectoryPointMsg[] points = trajectory.points;
         double prevTime = durationToDouble(points[0].time_from_start);
-        double[] prevPos = points[0].positions;
 
-
+ 
+        double[] prevPos = new double[points[0].positions.Length];
         for (int i = 0; i < prevPos.Length; i++) {
-            prevPos[i] = -1 * (prevPos[i] * Mathf.Rad2Deg);
+            prevPos[i] = -1 * (points[0].positions[i] * Mathf.Rad2Deg);
         }
 
-        for (int i = 1; i < points.Length; i++) { // Start from 1 since 0 is already in prevPos
+        for (int i = 1; i < points.Length; i++) {
             double[] positions = points[i].positions;
 
+  
+            double[] modifiedPositions = new double[positions.Length];
             for (int j = 0; j < positions.Length; j++) {
-                positions[j] = -1 * (positions[j] * Mathf.Rad2Deg);
+                modifiedPositions[j] = -1 * (positions[j] * Mathf.Rad2Deg);
             }
 
             double currTime = durationToDouble(points[i].time_from_start);
@@ -542,9 +544,9 @@ public class SetupUI : MonoBehaviour
                 yield break;
             }
 
-            yield return StartCoroutine(MoveKnobsOverTime(prevPos, positions, movingTime));
+            yield return StartCoroutine(MoveKnobsOverTime(prevPos, modifiedPositions, movingTime));
 
-            prevPos = positions;
+            prevPos = modifiedPositions;
             prevTime = currTime;
         }
     }
