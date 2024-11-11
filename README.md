@@ -6,6 +6,16 @@ We intend for this to be used for robotic learning from demonstration, however, 
 
 ## Package Installation
 
+### Dependencies
+
+Install these dependencies via Unity's Package Manager window:
+
+```bash
+https://github.com/Unity-Technologies/ROS-TCP-Connector.git?path=/com.unity.robotics.ros-tcp-connector#v0.7.0
+
+https://github.com/Unity-Technologies/URDF-Importer.git?path=/com.unity.robotics.urdf-importer#v0.5.2
+```
+
 This package can be installed using Unity's Package Manager window. Add the package via git and use this URL: `https://github.com/parasollab/RADER.git`.
 
 This package can be used on its own but is maximally useful when used in conjunction with ROS nodes running on an external computer to process the trajectory data collected. Our ROS nodes can be found here: [https://github.com/parasollab/hri_ws](https://github.com/parasollab/hri_ws).
