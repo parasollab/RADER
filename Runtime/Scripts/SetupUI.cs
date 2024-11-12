@@ -500,7 +500,7 @@ public class SetupUI : MonoBehaviour
             // Calculate the precise time from start
             float timeFromStart = Time.time - recordStartTime;
             int secs = (int)Math.Floor(timeFromStart);
-            int nsecs = (int)((timeFromStart - secs) * 1e9);
+            uint nsecs = (uint)((timeFromStart - secs) * 1e9);
 
             JointTrajectoryPointMsg jointTrajectoryPoint = new JointTrajectoryPointMsg
             {
@@ -531,7 +531,7 @@ public class SetupUI : MonoBehaviour
             frame_id = gameObject.name,
             stamp = new TimeMsg
             {
-                sec = (uint)Time.time,
+                sec = (int)Time.time,
                 nanosec = (uint)((Time.time - (int)Time.time) * 1e9)
             }
         };
