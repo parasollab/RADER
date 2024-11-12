@@ -12,7 +12,6 @@ using RosMessageTypes.Std;
 using RosMessageTypes.Sensor;
 using RosMessageTypes.Hri;
 using UnityEngine.Assertions;
-using System.Drawing;
 using System.Linq;
 using System.Collections;
 // using System.Diagnostics;
@@ -21,6 +20,7 @@ public class SetupUI : MonoBehaviour
 {
     public ROSConnection ros;
     public GameObject menuUI;
+    public GameObject plotPointPrefab;
     public String trajTopicName = "/joint_trajectory";
     public String queryTopicName = "/joint_query";
     public String inputStateTopicName = "/joint_states";
@@ -31,6 +31,7 @@ public class SetupUI : MonoBehaviour
     public List<String> jointNames;
     public List<int> jointSigns = new List<int>();
     public float recordInterval = 0.1f;
+    public float plotInterval = 0.001f;
     public float publishStateInterval = 0.2f;
 
     private bool recordROS = false;
@@ -59,6 +60,11 @@ public class SetupUI : MonoBehaviour
     private Dictionary<Transform, float> momentsOfInertia = new Dictionary<Transform, float>();
     public ProcessUrdf processUrdf;
     private JointTrajectoryMsg lastTrajectory = null;
+
+    private GameObject plotter;
+    private List<Vector3> plotterPositions = new List<Vector3>();
+    private List<GameObject> plotPoints = new List<GameObject>();
+
     void Start()
     {
         Debug.Log("SetupUI Start");
@@ -70,7 +76,7 @@ public class SetupUI : MonoBehaviour
         ros.Subscribe<JointStateMsg>(inputStateTopicName, MirrorStateCallback);
 
         LoadUI();
-        
+        LoadPlotter();
         InitializeKnobData();
     }
 
@@ -339,6 +345,7 @@ public class SetupUI : MonoBehaviour
         });
 
         InvokeRepeating("addJointPosition", 1.0f, recordInterval);
+        InvokeRepeating("addPlotPositon", 1.0f, plotInterval);
 
         // Load the query interface
         contentGameObject = menuUI.GetNamedChild("Spatial Panel Scroll")
@@ -476,6 +483,13 @@ public class SetupUI : MonoBehaviour
         });
     }
 
+    void LoadPlotter()
+    {
+        // create plotter game object
+        plotter = new GameObject("Plotter");
+        plotter.transform.parent = transform;
+    }
+
 
     void addJointPosition()
     {
@@ -512,6 +526,14 @@ public class SetupUI : MonoBehaviour
         }
     }
 
+    void addPlotPositon()
+    {
+        if (recordROS)
+        {
+            plotterPositions.Add(knobs.Last().transform.position);
+        }
+    }
+
     float CalculateTorque(Transform knob)
     {
         float currentAngle = knob.transform.localEulerAngles.y;
@@ -540,6 +562,51 @@ public class SetupUI : MonoBehaviour
         jointTrajectory.points = jointTrajectoryPoints.ToArray();
 
         lastTrajectory = jointTrajectory;
+        // fill in the plotter with the new trajectory
+        plotTrajectory();
+    }
+
+    void plotTrajectory()
+    { 
+        // cleanup previous plot points
+        foreach (GameObject plotObj in plotPoints)
+        {
+            Destroy(plotObj);
+        }
+
+        // Convert start and end colors to HSV
+        Color startcol = new Color(0.102f, 0.024f, 0.549f, 1.0f);
+        Color endcol = new Color(0.953f, 0.933f, 0.133f, 1.0f);
+        Color.RGBToHSV(startcol, out float startH, out float startS, out float startV);
+        Color.RGBToHSV(endcol, out float endH, out float endS, out float endV);
+
+        // Create new plot points
+        int i = 0;
+        foreach (Vector3 pos in plotterPositions)
+        {   
+            GameObject p = Instantiate(plotPointPrefab);
+            p.transform.position = pos;
+            p.transform.parent = plotter.transform;
+
+            // Calculate interpolation factor
+            float t = (float)i / (plotterPositions.Count - 1);
+
+            // Lerp each HSV component
+            float h = Mathf.Lerp(startH, endH, t);
+            float s = Mathf.Lerp(startS, endS, t);
+            float v = Mathf.Lerp(startV, endV, t);
+
+            // Convert back to RGB and apply color
+            Color lerpedColor = Color.HSVToRGB(h, s, v);
+            lerpedColor.a = 1.0f;  
+            p.GetComponent<Renderer>().material.color = lerpedColor;
+
+            plotPoints.Add(p);
+            i++;
+        }   
+
+        // Clear the plotterPositions list for the next trajectory
+        plotterPositions.Clear();
     }
 
     void sendJointPositionMessage(JointTrajectoryMsg jointTrajectory)
@@ -607,6 +674,9 @@ public class SetupUI : MonoBehaviour
             prevTime = currTime;
         }
     }
+
+
+
 
     IEnumerator MoveKnobsOverTime(double[] startPositions, double[] endPositions, double duration) {
         float elapsedTime = 0f;
