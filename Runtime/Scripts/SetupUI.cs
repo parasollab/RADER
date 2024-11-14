@@ -31,7 +31,7 @@ public class SetupUI : MonoBehaviour
     public List<String> jointNames;
     public List<int> jointSigns = new List<int>();
     public float recordInterval = 0.1f;
-    public float plotInterval = 0.001f;
+    public float plotInterval = 0.01f;
     public float publishStateInterval = 0.2f;
 
     private bool recordROS = false;
@@ -568,20 +568,42 @@ public class SetupUI : MonoBehaviour
 
     void plotTrajectory()
     { 
-        // cleanup previous plot points
+        // Cleanup previous plot points
         foreach (GameObject plotObj in plotPoints)
         {
             Destroy(plotObj);
         }
+        plotPoints.Clear();
 
-        // Convert start and end colors to HSV
-        Color startcol = new Color(0.102f, 0.024f, 0.549f, 1.0f);
-        Color endcol = new Color(0.953f, 0.933f, 0.133f, 1.0f);
-        Color.RGBToHSV(startcol, out float startH, out float startS, out float startV);
-        Color.RGBToHSV(endcol, out float endH, out float endS, out float endV);
+        // Creating gradient from a list of colors
+        Color[] colorPalette = new Color[]
+        {
+            new Color(76f / 255f, 7f / 255f, 156f / 255f),  // Start color
+            new Color(76f / 255f, 7f / 255f, 156f / 255f),  // mid 1
+            new Color(167f / 255f, 47f / 255f, 144f / 255f),  // mid 2
+            new Color(247f / 255f, 224f / 255f, 36f / 255f)  // End color
+        };
+
+        var gradient = new Gradient();
+
+        // Set up color keys
+        var colors = new GradientColorKey[4];
+        colors[0] = new GradientColorKey(colorPalette[0], 0.0f);
+        colors[1] = new GradientColorKey(colorPalette[1], 0.5f);
+        colors[2] = new GradientColorKey(colorPalette[3], 0.7f);
+        colors[3] = new GradientColorKey(colorPalette[3], 0.8f);
+
+        // Set up alpha keys
+        var alphas = new GradientAlphaKey[2];
+        alphas[0] = new GradientAlphaKey(0.5f, 0.0f);
+        alphas[1] = new GradientAlphaKey(0.5f, 1.0f);
+
+        gradient.SetKeys(colors, alphas);
 
         // Create new plot points
-        int i = 0;
+        float i = 0;
+        int positionCount = plotterPositions.Count;
+
         foreach (Vector3 pos in plotterPositions)
         {   
             GameObject p = Instantiate(plotPointPrefab);
@@ -589,20 +611,14 @@ public class SetupUI : MonoBehaviour
             p.transform.parent = plotter.transform;
 
             // Calculate interpolation factor
-            float t = (float)i / (plotterPositions.Count - 1);
+            float t = (positionCount > 1) ? i / (positionCount - 1) : 0f;
 
-            // Lerp each HSV component
-            float h = Mathf.Lerp(startH, endH, t);
-            float s = Mathf.Lerp(startS, endS, t);
-            float v = Mathf.Lerp(startV, endV, t);
-
-            // Convert back to RGB and apply color
-            Color lerpedColor = Color.HSVToRGB(h, s, v);
-            lerpedColor.a = 1.0f;  
-            p.GetComponent<Renderer>().material.color = lerpedColor;
+            // Assign color from gradient
+            p.GetComponent<Renderer>().material.color = gradient.Evaluate(t);
 
             plotPoints.Add(p);
-            i++;
+
+            i += 1; // Increment the index
         }   
 
         // Clear the plotterPositions list for the next trajectory
@@ -639,8 +655,8 @@ public class SetupUI : MonoBehaviour
     {
         jointTrajectoryPoints.Clear();
         recordStartTime = 0;
+        plotterPositions.Clear(); // Clear plotterPositions here
     }
-
     IEnumerator playTrajectory(JointTrajectoryMsg trajectory) {
         JointTrajectoryPointMsg[] points = trajectory.points;
         double prevTime = durationToDouble(points[0].time_from_start);
