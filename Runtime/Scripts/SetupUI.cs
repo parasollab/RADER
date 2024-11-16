@@ -259,7 +259,7 @@ public class SetupUI : MonoBehaviour
         // Record button
         recordButtonObject = contentGameObject.GetNamedChild("Record Button").GetNamedChild("Text Poke Button");
         recordButton = recordButtonObject.GetComponent<Button>();
-        TextMeshProUGUI buttonText = recordButtonObject.GetNamedChild("Button Front").GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
+        TextMeshProUGUI recordButtonText = recordButtonObject.GetNamedChild("Button Front").GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
 
 
         // Send button
