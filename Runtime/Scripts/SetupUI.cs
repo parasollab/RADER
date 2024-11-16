@@ -36,12 +36,12 @@ public class SetupUI : MonoBehaviour
     public float recordInterval = 0.1f;
     public float publishStateInterval = 0.2f;
 
-    public InputActionReference pressA = null;
-    public InputActionReference pressB = null;
+    public InputActionReference pressA;
+    public InputActionReference pressB;
 
-    public InputActionReference pressX = null;
+    public InputActionReference pressX;
 
-    public InputActionReference pressY = null;
+    public InputActionReference pressY;
 
     private bool recordROS = false;
     private List<double> startPositions;
