@@ -5,6 +5,8 @@ using Unity.VRTemplate;
 using Unity.XR.CoreUtils;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Interactions;
 using Unity.Robotics.ROSTCPConnector;
 using RosMessageTypes.Trajectory;
 using RosMessageTypes.BuiltinInterfaces;
@@ -33,6 +35,15 @@ public class SetupUI : MonoBehaviour
     public float recordInterval = 0.1f;
     public float publishStateInterval = 0.2f;
 
+
+    public InputActionReference pressA;
+    public InputActionReference pressB;
+
+    public InputActionReference pressX;
+
+    public InputActionReference pressY;
+
+
     private bool recordROS = false;
     private List<double> startPositions;
     private List<double> goalPositions;
@@ -59,6 +70,12 @@ public class SetupUI : MonoBehaviour
     private Dictionary<Transform, float> momentsOfInertia = new Dictionary<Transform, float>();
     public ProcessUrdf processUrdf;
     private JointTrajectoryMsg lastTrajectory = null;
+
+    private Button recordButton;
+
+    private Button sendButton;
+
+    private Button mirrorButton;
     void Start()
     {
         Debug.Log("SetupUI Start");
@@ -69,6 +86,10 @@ public class SetupUI : MonoBehaviour
         ros.RegisterPublisher<BoolMsg>(interactionTopicName);
         ros.Subscribe<JointStateMsg>(inputStateTopicName, MirrorStateCallback);
 
+        pressA.action.started += SimulateRecordButtonClick;
+        pressB.action.started += SimulateDiscardButtonClick;
+        pressX.action.started += SimulateMirrorButtonClick;
+        
         LoadUI();
         
         InitializeKnobData();
@@ -203,7 +224,7 @@ public class SetupUI : MonoBehaviour
         ros.Publish(queryTopicName, jointQuery);
 
         // Also enable the record button
-        Button recordButton = recordButtonObject.GetComponent<Button>();
+        recordButton = recordButtonObject.GetComponent<Button>();
         recordButton.interactable = true;
     }
 
@@ -233,7 +254,7 @@ public class SetupUI : MonoBehaviour
         // Send button
         GameObject sendButtonObject = contentGameObject.GetNamedChild("Send Button")
             .GetNamedChild("Text Poke Button");
-        Button sendButton = sendButtonObject.GetComponent<Button>();
+        sendButton = sendButtonObject.GetComponent<Button>();
         TextMeshProUGUI sendButtonText = sendButtonObject
             .GetNamedChild("Button Front")
             .GetNamedChild("Text (TMP) ")
@@ -400,7 +421,7 @@ public class SetupUI : MonoBehaviour
         // Mirror input button
         mirrorButtonObject = contentGameObject.GetNamedChild("Mirror Input Button")
             .GetNamedChild("Text Poke Button");
-        Button mirrorButton = mirrorButtonObject.GetComponent<Button>();
+        mirrorButton = mirrorButtonObject.GetComponent<Button>();
         TextMeshProUGUI mirrorButtonText = mirrorButtonObject
             .GetNamedChild("Button Front")
             .GetNamedChild("Text (TMP) ")
@@ -640,4 +661,22 @@ public class SetupUI : MonoBehaviour
     {
         trajectoryLog.Clear();
     }
+
+       private void SimulateRecordButtonClick(InputAction.CallbackContext context)
+{
+
+    recordButton.onClick.Invoke();
+}
+   private void SimulateDiscardButtonClick(InputAction.CallbackContext context)
+{
+
+    sendButton.onClick.Invoke();
+
+}
+    private void SimulateMirrorButtonClick(InputAction.CallbackContext context)
+{
+
+    mirrorButton.onClick.Invoke();
+
+}
 }
