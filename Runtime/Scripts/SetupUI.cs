@@ -36,12 +36,13 @@ public class SetupUI : MonoBehaviour
     public float publishStateInterval = 0.2f;
 
 
-    public InputActionReference pressA;
-    public InputActionReference pressB;
+    private XRIDefaultInputActions inputActions;
+    // public InputActionReference pressA;
+    // public InputActionReference pressB;
 
-    public InputActionReference pressX;
+    // public InputActionReference pressX;
 
-    public InputActionReference pressY;
+    // public InputActionReference pressY;
 
 
     private bool recordROS = false;
@@ -86,14 +87,23 @@ public class SetupUI : MonoBehaviour
         ros.RegisterPublisher<BoolMsg>(interactionTopicName);
         ros.Subscribe<JointStateMsg>(inputStateTopicName, MirrorStateCallback);
 
-        pressA.action.started += SimulateRecordButtonClick;
-        pressB.action.started += SimulateDiscardButtonClick;
-        pressX.action.started += SimulateMirrorButtonClick;
+        inputActions = new XRIDefaultInputActions();
+        inputActions.XRILeftHand.Enable();
+        inputActions.XRIRightHand.Enable();
+
+        inputActions.XRIRightHand.PressA.performed += SimulateRecordButtonClick;
+        inputActions.XRIRightHand.PressB.performed += SimulateDiscardButtonClick;
+        inputActions.XRILeftHand.PressX.performed += SimulateMirrorButtonClick;
+
+        // pressA.action.started += SimulateRecordButtonClick;
+        // pressB.action.started += SimulateDiscardButtonClick;
+        // pressX.action.started += SimulateMirrorButtonClick;
         
         LoadUI();
         
         InitializeKnobData();
     }
+
 
     void InitializeKnobData()
     {
