@@ -66,7 +66,7 @@ public class SetupUI : MonoBehaviour
     private List<GameObject> plotPoints = new List<GameObject>();
     private Vector3 lastPos;
     private float sampleThreshold = 0.1f;
-
+    private bool enablePlotting = true;
     void Start()
     {
         Debug.Log("SetupUI Start");
@@ -484,6 +484,25 @@ public class SetupUI : MonoBehaviour
             Debug.Log("goHomeButton.onClick");
             processUrdf.ResetHomePosition();
         });
+
+        // Enable and disable plotting
+        GameObject plotButtonObject = contentGameObject.GetNamedChild("Plot Trajectory Button")
+            .GetNamedChild("Text Poke Button");
+        
+        Button plotButton = plotButtonObject.GetComponent<Button>();
+        TextMeshProUGUI plotButtonText = plotButtonObject
+            .GetNamedChild("Button Front")
+            .GetNamedChild("Text (TMP) ")
+            .GetComponent<TextMeshProUGUI>();
+
+        plotButton.onClick.AddListener(() =>
+        {
+            enablePlotting = !enablePlotting;
+            // set the text of the button
+            plotter.SetActive(enablePlotting);
+            plotButtonText.text = enablePlotting ? "True" : "False";
+        });
+        
     }
 
     void LoadPlotter()
