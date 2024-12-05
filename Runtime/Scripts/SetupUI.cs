@@ -64,10 +64,13 @@ public class SetupUI : MonoBehaviour
     private GameObject plotter;
     private List<Vector3> plotterPositions = new List<Vector3>();
     private List<GameObject> plotPoints = new List<GameObject>();
+    private Vector3 lastPos;
+    private float sampleThreshold = 0.1f;
 
     void Start()
     {
         Debug.Log("SetupUI Start");
+        lastPos = new Vector3(0, 0, 0);
         if (ros == null) ros = ROSConnection.GetOrCreateInstance();
         ros.RegisterPublisher<JointQueryMsg>(queryTopicName);
         ros.RegisterPublisher<JointTrajectoryMsg>(trajTopicName);
@@ -530,7 +533,12 @@ public class SetupUI : MonoBehaviour
     {
         if (recordROS)
         {
-            plotterPositions.Add(knobs.Last().transform.position);
+            Vector3 pos = knobs.Last().transform.position;
+            if ((pos-lastPos).magnitude > sampleThreshold)
+            {
+                plotterPositions.Add(knobs.Last().transform.position);
+                lastPos = pos;
+            }
         }
     }
 
@@ -589,14 +597,14 @@ public class SetupUI : MonoBehaviour
         // Set up color keys
         var colors = new GradientColorKey[4];
         colors[0] = new GradientColorKey(colorPalette[0], 0.0f);
-        colors[1] = new GradientColorKey(colorPalette[1], 0.5f);
-        colors[2] = new GradientColorKey(colorPalette[3], 0.7f);
-        colors[3] = new GradientColorKey(colorPalette[3], 0.8f);
+        colors[1] = new GradientColorKey(colorPalette[1], 0.2f);
+        colors[2] = new GradientColorKey(colorPalette[3], 0.9f);
+        colors[3] = new GradientColorKey(colorPalette[3], 1.0f);
 
         // Set up alpha keys
         var alphas = new GradientAlphaKey[2];
-        alphas[0] = new GradientAlphaKey(0.5f, 0.0f);
-        alphas[1] = new GradientAlphaKey(0.5f, 1.0f);
+        alphas[0] = new GradientAlphaKey(0.8f, 0.0f);
+        alphas[1] = new GradientAlphaKey(0.8f, 1.0f);
 
         gradient.SetKeys(colors, alphas);
 
