@@ -12,6 +12,7 @@ using RosMessageTypes.Std;
 using RosMessageTypes.Sensor;
 using RosMessageTypes.Hri;
 using UnityEngine.Assertions;
+using System.Drawing;
 using System.Linq;
 using System.Collections;
 // using System.Diagnostics;
@@ -20,7 +21,6 @@ public class SetupUI : MonoBehaviour
 {
     public ROSConnection ros;
     public GameObject menuUI;
-    public GameObject plotPointPrefab;
     public String trajTopicName = "/joint_trajectory";
     public String queryTopicName = "/joint_query";
     public String inputStateTopicName = "/joint_states";
@@ -31,7 +31,6 @@ public class SetupUI : MonoBehaviour
     public List<String> jointNames;
     public List<int> jointSigns = new List<int>();
     public float recordInterval = 0.1f;
-    public float plotInterval = 0.01f;
     public float publishStateInterval = 0.2f;
 
     private bool recordROS = false;
@@ -60,17 +59,9 @@ public class SetupUI : MonoBehaviour
     private Dictionary<Transform, float> momentsOfInertia = new Dictionary<Transform, float>();
     public ProcessUrdf processUrdf;
     private JointTrajectoryMsg lastTrajectory = null;
-
-    private GameObject plotter;
-    private List<Vector3> plotterPositions = new List<Vector3>();
-    private List<GameObject> plotPoints = new List<GameObject>();
-    private Vector3 lastPos;
-    private float sampleThreshold = 0.1f;
-    private bool enablePlotting = true;
     void Start()
     {
         Debug.Log("SetupUI Start");
-        lastPos = new Vector3(0, 0, 0);
         if (ros == null) ros = ROSConnection.GetOrCreateInstance();
         ros.RegisterPublisher<JointQueryMsg>(queryTopicName);
         ros.RegisterPublisher<JointTrajectoryMsg>(trajTopicName);
@@ -79,7 +70,7 @@ public class SetupUI : MonoBehaviour
         ros.Subscribe<JointStateMsg>(inputStateTopicName, MirrorStateCallback);
 
         LoadUI();
-        LoadPlotter();
+        
         InitializeKnobData();
     }
 
@@ -348,7 +339,6 @@ public class SetupUI : MonoBehaviour
         });
 
         InvokeRepeating("addJointPosition", 1.0f, recordInterval);
-        InvokeRepeating("addPlotPositon", 1.0f, plotInterval);
 
         // Load the query interface
         contentGameObject = menuUI.GetNamedChild("Spatial Panel Scroll")
@@ -484,32 +474,6 @@ public class SetupUI : MonoBehaviour
             Debug.Log("goHomeButton.onClick");
             processUrdf.ResetHomePosition();
         });
-
-        // Enable and disable plotting
-        GameObject plotButtonObject = contentGameObject.GetNamedChild("Plot Trajectory Button")
-            .GetNamedChild("Text Poke Button");
-        
-        Button plotButton = plotButtonObject.GetComponent<Button>();
-        TextMeshProUGUI plotButtonText = plotButtonObject
-            .GetNamedChild("Button Front")
-            .GetNamedChild("Text (TMP) ")
-            .GetComponent<TextMeshProUGUI>();
-
-        plotButton.onClick.AddListener(() =>
-        {
-            enablePlotting = !enablePlotting;
-            // set the text of the button
-            plotter.SetActive(enablePlotting);
-            plotButtonText.text = enablePlotting ? "True" : "False";
-        });
-        
-    }
-
-    void LoadPlotter()
-    {
-        // create plotter game object
-        plotter = new GameObject("Plotter");
-        plotter.transform.parent = transform;
     }
 
 
@@ -548,19 +512,6 @@ public class SetupUI : MonoBehaviour
         }
     }
 
-    void addPlotPositon()
-    {
-        if (recordROS)
-        {
-            Vector3 pos = knobs.Last().transform.position;
-            if ((pos-lastPos).magnitude > sampleThreshold)
-            {
-                plotterPositions.Add(knobs.Last().transform.position);
-                lastPos = pos;
-            }
-        }
-    }
-
     float CalculateTorque(Transform knob)
     {
         float currentAngle = knob.transform.localEulerAngles.y;
@@ -589,67 +540,6 @@ public class SetupUI : MonoBehaviour
         jointTrajectory.points = jointTrajectoryPoints.ToArray();
 
         lastTrajectory = jointTrajectory;
-        // fill in the plotter with the new trajectory
-        plotTrajectory();
-    }
-
-    void plotTrajectory()
-    { 
-        // Cleanup previous plot points
-        foreach (GameObject plotObj in plotPoints)
-        {
-            Destroy(plotObj);
-        }
-        plotPoints.Clear();
-
-        // Creating gradient from a list of colors
-        Color[] colorPalette = new Color[]
-        {
-            new Color(76f / 255f, 7f / 255f, 156f / 255f),  // Start color
-            new Color(76f / 255f, 7f / 255f, 156f / 255f),  // mid 1
-            new Color(167f / 255f, 47f / 255f, 144f / 255f),  // mid 2
-            new Color(247f / 255f, 224f / 255f, 36f / 255f)  // End color
-        };
-
-        var gradient = new Gradient();
-
-        // Set up color keys
-        var colors = new GradientColorKey[4];
-        colors[0] = new GradientColorKey(colorPalette[0], 0.0f);
-        colors[1] = new GradientColorKey(colorPalette[1], 0.2f);
-        colors[2] = new GradientColorKey(colorPalette[3], 0.9f);
-        colors[3] = new GradientColorKey(colorPalette[3], 1.0f);
-
-        // Set up alpha keys
-        var alphas = new GradientAlphaKey[2];
-        alphas[0] = new GradientAlphaKey(0.8f, 0.0f);
-        alphas[1] = new GradientAlphaKey(0.8f, 1.0f);
-
-        gradient.SetKeys(colors, alphas);
-
-        // Create new plot points
-        float i = 0;
-        int positionCount = plotterPositions.Count;
-
-        foreach (Vector3 pos in plotterPositions)
-        {   
-            GameObject p = Instantiate(plotPointPrefab);
-            p.transform.position = pos;
-            p.transform.parent = plotter.transform;
-
-            // Calculate interpolation factor
-            float t = (positionCount > 1) ? i / (positionCount - 1) : 0f;
-
-            // Assign color from gradient
-            p.GetComponent<Renderer>().material.color = gradient.Evaluate(t);
-
-            plotPoints.Add(p);
-
-            i += 1; // Increment the index
-        }   
-
-        // Clear the plotterPositions list for the next trajectory
-        plotterPositions.Clear();
     }
 
     void sendJointPositionMessage(JointTrajectoryMsg jointTrajectory)
@@ -682,8 +572,8 @@ public class SetupUI : MonoBehaviour
     {
         jointTrajectoryPoints.Clear();
         recordStartTime = 0;
-        plotterPositions.Clear(); // Clear plotterPositions here
     }
+
     IEnumerator playTrajectory(JointTrajectoryMsg trajectory) {
         JointTrajectoryPointMsg[] points = trajectory.points;
         double prevTime = durationToDouble(points[0].time_from_start);
@@ -717,9 +607,6 @@ public class SetupUI : MonoBehaviour
             prevTime = currTime;
         }
     }
-
-
-
 
     IEnumerator MoveKnobsOverTime(double[] startPositions, double[] endPositions, double duration) {
         float elapsedTime = 0f;

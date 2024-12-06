@@ -21,7 +21,6 @@ public class ProcessUrdf : MonoBehaviour
 
     public GameObject target;  // Reference to the target object for the CCDIK
     public GameObject menuUI;  // Reference to the meanu UI prefab
-    public GameObject plotPointPrefab;  // Reference to the plot prefab
     private List<KeyValuePair<GameObject, GameObject>> reparentingList = new List<KeyValuePair<GameObject, GameObject>>();
 
     private List<Tuple<float, float>> jointLimits = new List<Tuple<float, float>>();
@@ -97,7 +96,6 @@ public class ProcessUrdf : MonoBehaviour
             setupUI.knobs = knobObjs;
             setupUI.jointNames = jointNames;
             setupUI.menuUI = menuUI;
-            setupUI.plotPointPrefab = plotPointPrefab;
             setupUI.recordInterval = demoRecordRate;
             setupUI.publishStateInterval = publishStateRate;
             
