@@ -74,6 +74,8 @@ public class SetupUI : MonoBehaviour
 
     private Button recordButton;
 
+    private Button replayButton;
+
     private Button sendButton;
 
     private Button mirrorButton;
@@ -92,7 +94,7 @@ public class SetupUI : MonoBehaviour
         inputActions.XRIRightHand.Enable();
 
         inputActions.XRIRightHand.PressA.performed += SimulateRecordButtonClick;
-        inputActions.XRIRightHand.PressB.performed += SimulateDiscardButtonClick;
+        inputActions.XRIRightHand.PressB.performed += SimulateReplayButtonClick;
         inputActions.XRILeftHand.PressX.performed += SimulateMirrorButtonClick;
 
         // pressA.action.started += SimulateRecordButtonClick;
@@ -255,7 +257,7 @@ public class SetupUI : MonoBehaviour
         // Record button
         recordButtonObject = contentGameObject.GetNamedChild("Record Button")
             .GetNamedChild("Text Poke Button");
-        Button recordButton = recordButtonObject.GetComponent<Button>();
+        recordButton = recordButtonObject.GetComponent<Button>();
         TextMeshProUGUI recordButtonText = recordButtonObject
             .GetNamedChild("Button Front")
             .GetNamedChild("Text (TMP) ")
@@ -288,7 +290,7 @@ public class SetupUI : MonoBehaviour
         // Replay Button
         GameObject replayButtonObject = contentGameObject.GetNamedChild("Replay Button")
             .GetNamedChild("Text Poke Button");
-        Button replayButton = replayButtonObject.GetComponent<Button>();
+        replayButton = replayButtonObject.GetComponent<Button>();
 
         replayButton.onClick.AddListener(() =>
         {
@@ -677,10 +679,10 @@ public class SetupUI : MonoBehaviour
 
     recordButton.onClick.Invoke();
 }
-   private void SimulateDiscardButtonClick(InputAction.CallbackContext context)
+   private void SimulateReplayButtonClick(InputAction.CallbackContext context)
 {
 
-    sendButton.onClick.Invoke();
+    replayButton.onClick.Invoke();
 
 }
     private void SimulateMirrorButtonClick(InputAction.CallbackContext context)
