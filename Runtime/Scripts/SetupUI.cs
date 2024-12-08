@@ -674,21 +674,21 @@ public class SetupUI : MonoBehaviour
         trajectoryLog.Clear();
     }
 
-       private void SimulateRecordButtonClick(InputAction.CallbackContext context)
-{
+    private void SimulateRecordButtonClick(InputAction.CallbackContext context)
+    {
 
-    recordButton.onClick.Invoke();
-}
-   private void SimulateReplayButtonClick(InputAction.CallbackContext context)
-{
+        recordButton.onClick.Invoke();
+    }
+    private void SimulateReplayButtonClick(InputAction.CallbackContext context)
+    {
 
-    replayButton.onClick.Invoke();
+        replayButton.onClick.Invoke();
 
-}
+    }
     private void SimulateMirrorButtonClick(InputAction.CallbackContext context)
-{
+    {
 
-    mirrorButton.onClick.Invoke();
+        mirrorButton.onClick.Invoke();
 
-}
+    }
 }
