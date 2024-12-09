@@ -5,6 +5,8 @@ using Unity.VRTemplate;
 using Unity.XR.CoreUtils;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Interactions;
 using Unity.Robotics.ROSTCPConnector;
 using RosMessageTypes.Trajectory;
 using RosMessageTypes.BuiltinInterfaces;
@@ -33,6 +35,16 @@ public class SetupUI : MonoBehaviour
     public float recordInterval = 0.1f;
     public float publishStateInterval = 0.2f;
 
+
+    private XRIDefaultInputActions inputActions;
+    // public InputActionReference pressA;
+    // public InputActionReference pressB;
+
+    // public InputActionReference pressX;
+
+    // public InputActionReference pressY;
+
+
     private bool recordROS = false;
     private List<double> startPositions;
     private List<double> goalPositions;
@@ -59,6 +71,14 @@ public class SetupUI : MonoBehaviour
     private Dictionary<Transform, float> momentsOfInertia = new Dictionary<Transform, float>();
     public ProcessUrdf processUrdf;
     private JointTrajectoryMsg lastTrajectory = null;
+
+    private Button recordButton;
+
+    private Button replayButton;
+
+    private Button sendButton;
+
+    private Button mirrorButton;
     void Start()
     {
         Debug.Log("SetupUI Start");
@@ -69,10 +89,23 @@ public class SetupUI : MonoBehaviour
         ros.RegisterPublisher<BoolMsg>(interactionTopicName);
         ros.Subscribe<JointStateMsg>(inputStateTopicName, MirrorStateCallback);
 
+        inputActions = new XRIDefaultInputActions();
+        inputActions.XRILeftHand.Enable();
+        inputActions.XRIRightHand.Enable();
+
+        inputActions.XRIRightHand.PressA.performed += SimulateRecordButtonClick;
+        inputActions.XRIRightHand.PressB.performed += SimulateReplayButtonClick;
+        inputActions.XRILeftHand.PressX.performed += SimulateMirrorButtonClick;
+
+        // pressA.action.started += SimulateRecordButtonClick;
+        // pressB.action.started += SimulateDiscardButtonClick;
+        // pressX.action.started += SimulateMirrorButtonClick;
+        
         LoadUI();
         
         InitializeKnobData();
     }
+
 
     void InitializeKnobData()
     {
@@ -203,7 +236,7 @@ public class SetupUI : MonoBehaviour
         ros.Publish(queryTopicName, jointQuery);
 
         // Also enable the record button
-        Button recordButton = recordButtonObject.GetComponent<Button>();
+        recordButton = recordButtonObject.GetComponent<Button>();
         recordButton.interactable = true;
     }
 
@@ -224,7 +257,7 @@ public class SetupUI : MonoBehaviour
         // Record button
         recordButtonObject = contentGameObject.GetNamedChild("Record Button")
             .GetNamedChild("Text Poke Button");
-        Button recordButton = recordButtonObject.GetComponent<Button>();
+        recordButton = recordButtonObject.GetComponent<Button>();
         TextMeshProUGUI recordButtonText = recordButtonObject
             .GetNamedChild("Button Front")
             .GetNamedChild("Text (TMP) ")
@@ -233,7 +266,7 @@ public class SetupUI : MonoBehaviour
         // Send button
         GameObject sendButtonObject = contentGameObject.GetNamedChild("Send Button")
             .GetNamedChild("Text Poke Button");
-        Button sendButton = sendButtonObject.GetComponent<Button>();
+        sendButton = sendButtonObject.GetComponent<Button>();
         TextMeshProUGUI sendButtonText = sendButtonObject
             .GetNamedChild("Button Front")
             .GetNamedChild("Text (TMP) ")
@@ -257,7 +290,7 @@ public class SetupUI : MonoBehaviour
         // Replay Button
         GameObject replayButtonObject = contentGameObject.GetNamedChild("Replay Button")
             .GetNamedChild("Text Poke Button");
-        Button replayButton = replayButtonObject.GetComponent<Button>();
+        replayButton = replayButtonObject.GetComponent<Button>();
 
         replayButton.onClick.AddListener(() =>
         {
@@ -400,7 +433,7 @@ public class SetupUI : MonoBehaviour
         // Mirror input button
         mirrorButtonObject = contentGameObject.GetNamedChild("Mirror Input Button")
             .GetNamedChild("Text Poke Button");
-        Button mirrorButton = mirrorButtonObject.GetComponent<Button>();
+        mirrorButton = mirrorButtonObject.GetComponent<Button>();
         TextMeshProUGUI mirrorButtonText = mirrorButtonObject
             .GetNamedChild("Button Front")
             .GetNamedChild("Text (TMP) ")
@@ -639,5 +672,23 @@ public class SetupUI : MonoBehaviour
     void resetTrajectoryLog()
     {
         trajectoryLog.Clear();
+    }
+
+    private void SimulateRecordButtonClick(InputAction.CallbackContext context)
+    {
+
+        recordButton.onClick.Invoke();
+    }
+    private void SimulateReplayButtonClick(InputAction.CallbackContext context)
+    {
+
+        replayButton.onClick.Invoke();
+
+    }
+    private void SimulateMirrorButtonClick(InputAction.CallbackContext context)
+    {
+
+        mirrorButton.onClick.Invoke();
+
     }
 }
