@@ -165,16 +165,22 @@ public class SetupUI : MonoBehaviour
         if (publishState)
         {
             List<double> jointPositions = new List<double>();
+            jointTorques = new List<double>();
             for (int i = 0; i < knobTransforms.Count; i++)
             {
                 jointPositions.Add(-knobs[i].jointAngle * Mathf.Deg2Rad);
+
+                // Get the torque from the knob
+                float torque = CalculateTorque(knobTransforms[i]);
+                jointTorques.Add(torque);
             }
            
             // Publish the joint state message
             JointStateMsg jointState = new JointStateMsg
             {
                 name = jointNames.ToArray(),
-                position = jointPositions.ToArray()
+                position = jointPositions.ToArray(),
+                effort = jointTorques.ToArray()
             };
             ros.Publish(outputStateTopicName, jointState);
         }
