@@ -272,11 +272,30 @@ PrefabInstance:
       propertyPath: m_Name
       value: Dropdown
       objectReference: {fileID: 0}
+    - target: {fileID: 6262935103999308456, guid: d896a3e4298e74d1b9399780d18ad0cd, type: 3}
+      propertyPath: m_MovementType
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6262935103999308456, guid: d896a3e4298e74d1b9399780d18ad0cd, type: 3}
+      propertyPath: m_VerticalScrollbar
+      value: 
+      objectReference: {fileID: 1058138674436083653}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: d896a3e4298e74d1b9399780d18ad0cd, type: 3}
+--- !u!114 &1058138674436083653 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6262935103526533791, guid: d896a3e4298e74d1b9399780d18ad0cd, type: 3}
+  m_PrefabInstance: {fileID: 6360536021890266458}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a4db7a114972834c8e4117be1d82ba3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!224 &1058138675652305834 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 6262935102578480880, guid: d896a3e4298e74d1b9399780d18ad0cd, type: 3}

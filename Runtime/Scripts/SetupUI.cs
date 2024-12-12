@@ -351,10 +351,8 @@ public class SetupUI : MonoBehaviour
             .GetNamedChild("Value Text")
             .GetComponent<TextMeshProUGUI>();
 
-        // Populate the dropdown with the joint names reversed without changing the jointNames list
-        List<string> reversedJointNames = new List<string>(jointNames);
-        reversedJointNames.Reverse();
-        dropdown.AddOptions(reversedJointNames);
+        // Populate the dropdown with the joint names
+        dropdown.AddOptions(jointNames);
 
         int dropdownIndex = 0;
         int knobID = knobs[dropdownIndex].uniqueID;
