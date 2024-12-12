@@ -333,6 +333,8 @@ public class SetupUI : MonoBehaviour
 
                 // Let the planner know that interaction is starting
                 sendInteractionMessage(true);
+                mirrorButton.onClick.Invoke();
+
             }
         });
 
