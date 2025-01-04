@@ -10,7 +10,7 @@ public class SetupIK : MonoBehaviour
     private List<CCDIKJoint> ccdikJoints = new List<CCDIKJoint>();
     private List<XRKnobAlt> xrKnobs = new List<XRKnobAlt>();
     private GameObject lastChild;
-    private GameObject target;
+
     void Start()
     {
         TraverseAndAnalyze(this.gameObject);
@@ -41,10 +41,6 @@ public class SetupIK : MonoBehaviour
         {
             ccdikJoints.Add(obj.GetComponent<CCDIKJoint>());
         }
-        if(obj.name == "target")
-        {
-            target = obj;
-        }
         
         // Recursively process each child
         foreach (Transform child in obj.transform)
@@ -61,20 +57,11 @@ public class SetupIK : MonoBehaviour
         ccdIK.joints = ccdikJoints.ToArray();
         ccdIK.knobs = xrKnobs.ToArray();
         ccdIK.Tooltip = findRealLastChild(lastChild.transform);
-        ccdIK.Target = target.transform;
+    }
 
-        // xr events
-        XRGrabInteractable grabInteractable = target.GetComponent<XRGrabInteractable>();
-
-        // On select enter set CCDIK activ
-        grabInteractable.selectEntered.AddListener((SelectEnterEventArgs interactor) => {
-            ccdIK.active = true;
-        });
-
-        grabInteractable.selectExited.AddListener((SelectExitEventArgs interactor) => {
-            ccdIK.active = false;
-            target.transform.position = lastChild.transform.position;
-        });
+    public void InverseKinematics(Transform target)
+    {
+        lastChild.GetComponent<CCDIK>().InverseKinematics(target);
     }
 
     Transform findRealLastChild(Transform lastChild) {

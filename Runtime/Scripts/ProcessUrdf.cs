@@ -1,6 +1,5 @@
 
 using System.Collections.Generic;
-using Unity.Robotics.ROSTCPConnector;
 using Unity.VRTemplate;
 using UnityEngine;
 using UnityEditor;
@@ -13,32 +12,12 @@ using Unity.XR.CoreUtils;
 
 public class ProcessUrdf : MonoBehaviour
 {
-    public GameObject urdfModel;  // Reference to the base of the robot's URDF model
-    public GameObject gripper;  // Reference to the gripper object if any
-    public GameObject graspedObject;  // Reference to the object being grasped if any
-    public Vector3 graspedObjectPosition = Vector3.zero;  // Local position of the grasped object
-    public Vector3 graspedObjectRotation = Vector3.zero;  // Local rotation of the grasped object in Euler angles
-
-    public GameObject target;  // Reference to the target object for the CCDIK
-    public GameObject menuUI;  // Reference to the meanu UI prefab
     private List<KeyValuePair<GameObject, GameObject>> reparentingList = new List<KeyValuePair<GameObject, GameObject>>();
 
     private List<Tuple<float, float>> jointLimits = new List<Tuple<float, float>>();
     
     private List<bool> clampedMotionList = new List<bool>();
 
-    private List<CCDIKJoint> ccdikJoints = new List<CCDIKJoint>();
-    public ColorAffordanceThemeDatumProperty affordanceThemeDatum;
-
-    // variables for sending messages to ROS
-    public ROSConnection ros;
-    public string queryTopic = "/joint_query";
-    public string trajectoryTopic = "/joint_trajectory";
-    public string mirrorInputTopic = "/physical_joint_state";
-    public string stateOutputTopic = "/virtual_joint_state";
-    public string interactionTopic = "/interaction";
-    public float demoRecordRate = 0.01f;
-    public float publishStateRate = 0.2f;
     protected List<Transform> knobs = new List<Transform>();
     protected List<XRKnobAlt> knobObjs = new List<XRKnobAlt>();
 
@@ -47,67 +26,59 @@ public class ProcessUrdf : MonoBehaviour
     private List<string> jointNames = new List<string>();
     private List<GameObject> jointList = new List<GameObject>();
     public bool saveAsPrefab = false;
-    private int jointCount = 0;
     private GameObject grabJoint;
 
-    private SetupUI setupUI;
+    private GameObject lastLink;
 
-    void Awake()
+    // Getter for the last link
+    public GameObject LastLink
     {
-        Debug.Log("ProcessUrdf Awake");
-        if (urdfModel != null)
-        {
-            TraverseAndModify(urdfModel);
-            reParent();
-
-            GameObject lastChild = reparentingList[reparentingList.Count - 1].Key;
-            GameObject lastLink = findRealLastChild(lastChild);
-            createTarget(lastLink);
-
-            urdfModel.AddComponent<SetupGrabBase>();
-            SetupGrabBase setupBase = urdfModel.GetComponent<SetupGrabBase>();
-            setupBase.Base = grabJoint;
-
-            // Instantiate and attach the gripper prefab as a child to the last link
-            if (gripper != null)
-            {
-                GameObject gripperInstance = AddGripper(lastLink);
-                TraverseAndModify(gripperInstance);
-            }
-
-            // Instantiate and attach the grasped object prefab as a child to the last link
-            if (graspedObject != null)
-            {
-                AddGraspedObject(lastLink);
-            }
-
-            urdfModel.AddComponent<SetupIK>();
-            urdfModel.AddComponent<SetupUI>();
-
-            setupUI = urdfModel.GetComponent<SetupUI>();
-            setupUI.processUrdf = this;
-            setupUI.ros = ros;
-            setupUI.trajTopicName = trajectoryTopic;
-            setupUI.queryTopicName = queryTopic;
-            setupUI.inputStateTopicName = mirrorInputTopic;
-            setupUI.outputStateTopicName = stateOutputTopic;
-            setupUI.interactionTopicName = interactionTopic;
-            setupUI.knobTransforms = knobs;
-            setupUI.knobs = knobObjs;
-            setupUI.jointNames = jointNames;
-            setupUI.menuUI = menuUI;
-            setupUI.recordInterval = demoRecordRate;
-            setupUI.publishStateInterval = publishStateRate;
-            
-            Debug.Log("SetupUI done");
-
-            #if UNITY_EDITOR
-            savePrefab(urdfModel.name);
-            #endif
-        }
+        get { return lastLink; }
     }
 
-    GameObject AddGripper(GameObject lastLink)
+    public void ProcessModel(GameObject urdfModel, GameObject gripper, GameObject graspedObject, 
+        Vector3 graspedObjectPosition, Vector3 graspedObjectRotation,
+        ColorAffordanceThemeDatumProperty affordanceThemeDatum)
+    {
+        if (urdfModel == null)
+        {
+            Debug.LogError("No URDF model found, error in prefabSetup");
+            return;
+        }
+
+        TraverseAndModify(urdfModel);
+        reParent(affordanceThemeDatum);
+
+        GameObject lastChild = reparentingList[reparentingList.Count - 1].Key;
+        lastLink = findRealLastChild(lastChild);
+
+        urdfModel.AddComponent<SetupGrabBase>();
+        SetupGrabBase setupBase = urdfModel.GetComponent<SetupGrabBase>();
+        setupBase.Base = grabJoint;
+
+        // Instantiate and attach the gripper prefab as a child to the last link
+        if (gripper != null)
+        {
+            GameObject gripperInstance = AddGripper(gripper, lastLink);
+            TraverseAndModify(gripperInstance);
+        }
+
+        // Instantiate and attach the grasped object prefab as a child to the last link
+        if (graspedObject != null)
+        {
+            AddGraspedObject(graspedObject, lastLink, graspedObjectPosition, graspedObjectRotation);
+        }
+
+        urdfModel.AddComponent<SetupIK>();
+        
+        Debug.Log("SetupUI done");
+
+        #if UNITY_EDITOR
+        savePrefab(urdfModel, urdfModel.name);
+        #endif
+    }
+
+    GameObject AddGripper(GameObject gripper, GameObject lastLink)
     {
         // Instantiate the gripper prefab and attach it to the last link
         GameObject gripperInstance = Instantiate(gripper, lastLink.transform.position, lastLink.transform.rotation);
@@ -120,7 +91,7 @@ public class ProcessUrdf : MonoBehaviour
         return gripperInstance;
     }
 
-    void AddGraspedObject(GameObject lastLink)
+    void AddGraspedObject(GameObject graspedObject, GameObject lastLink, Vector3 graspedObjectPosition, Vector3 graspedObjectRotation)
     {
         // Instantiate the grasped object prefab and attach it to the last link
         GameObject graspedObjectInstance = Instantiate(graspedObject, lastLink.transform.position, lastLink.transform.rotation);
@@ -157,6 +128,10 @@ public class ProcessUrdf : MonoBehaviour
         foreach (var script in scripts)
         {   
             fixedJoint = script.GetType().Name == "UrdfJointFixed";
+            
+            // Do not delete scripts of type RobotManager
+            if (script.GetType().Name == "RobotManager") continue;
+
             DestroyImmediate(script); 
         }
 
@@ -164,7 +139,6 @@ public class ProcessUrdf : MonoBehaviour
 
         if (articulationBody != null)
         {
-            jointCount++;
             bool isClampedMotion = articulationBody.xDrive.upperLimit - articulationBody.xDrive.lowerLimit < 360;
             // bool isClampedMotion = (articulationBody.xDrive.upperLimit != 0) && (articulationBody.xDrive.lowerLimit != 0);
             Tuple<float, float> jointLimit = new Tuple<float, float>(articulationBody.xDrive.lowerLimit, articulationBody.xDrive.upperLimit);
@@ -210,8 +184,7 @@ public class ProcessUrdf : MonoBehaviour
         }
     }
 
-
-    void reParent()
+    void reParent(ColorAffordanceThemeDatumProperty affordanceThemeDatum)
     {
         for (int i = reparentingList.Count - 1; i >= 0; i--)
         {
@@ -234,8 +207,6 @@ public class ProcessUrdf : MonoBehaviour
             // // Add CCDIK components to the child, and add references to the list
             CCDIKJoint ccdik = child.AddComponent<CCDIKJoint>();
             ccdik.axis = new Vector3(0, 1, 0);
-            ccdikJoints.Add(ccdik);
-
 
             // // Add the XRKnobAlt
             XRKnobAlt knob = knobParent.AddComponent<XRKnobAlt>();
@@ -249,7 +220,7 @@ public class ProcessUrdf : MonoBehaviour
 
             knob.handle = child.transform;
             
-            createInteractionAffordance(child, knob, knobParent);
+            createInteractionAffordance(child, knob, knobParent, affordanceThemeDatum);
 
             // Use .Prepend to reverse the joint order
             knobObjs.Insert(0, knob);
@@ -291,7 +262,7 @@ public class ProcessUrdf : MonoBehaviour
         }
     }
 
-    void createInteractionAffordance(GameObject child, XRKnobAlt knob, GameObject knobParent)
+    void createInteractionAffordance(GameObject child, XRKnobAlt knob, GameObject knobParent, ColorAffordanceThemeDatumProperty affordanceThemeDatum)
     {
         // create interaction affordance
             GameObject knobAffordance = new GameObject("KnobAffordance");
@@ -316,17 +287,6 @@ public class ProcessUrdf : MonoBehaviour
             materialPropertyBlockHelper.enabled = true;
     }
 
-    void createTarget(GameObject lastLink)
-    {
-        // create target object for the last child
-        GameObject target = Instantiate(this.target, lastLink.transform.position, lastLink.transform.rotation);
-        target.name = "target";
-        target.transform.SetParent(lastLink.transform);
-        target.transform.localPosition = Vector3.zero;
-        target.transform.localRotation = Quaternion.identity;
-
-    }
-
     GameObject findRealLastChild(GameObject lastChild) {
         foreach (Transform child in lastChild.transform) {
             if (child.gameObject.GetNamedChild("Collisions") != null && child.gameObject.GetNamedChild("Visuals") != null) {
@@ -336,8 +296,7 @@ public class ProcessUrdf : MonoBehaviour
         return lastChild;
     }
 
-
-    void savePrefab(string name)
+    void savePrefab(GameObject urdfModel, string name)
     {
         // Save the prefab
         string prefabPath = "Assets/Prefabs/"+name+".prefab";
