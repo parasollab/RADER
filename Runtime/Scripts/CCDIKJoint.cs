@@ -62,66 +62,88 @@ public class CCDIKJoint : MonoBehaviour
     /// 'rotateToDirection = true' tries to match the 'up' vector to the 'forward' vector; otherwise uses position alignment.
     /// Includes an optional roll alignment and partial Slerp to avoid overshoot.
     /// </summary>
-    public void Evaluate(Transform ToolTip, Transform Target, bool rotateToDirection = false)
-    {
-        // Store the local y-angle before we do anything
+    // public void Evaluate(Transform ToolTip, Transform Target, bool rotateToDirection = false)
+    // {
+    //     // Store the local y-angle before we do anything
+    //     prevAngle = transform.localEulerAngles.y;
+
+    //     // -------------------------------------------
+    //     // STEP 1: Compute the main "look" rotation
+    //     // Either align ToolTip.up -> Target.forward, OR align the vector from joint->ToolTip to joint->Target
+    //     // -------------------------------------------
+    //     Vector3 fromVector = rotateToDirection
+    //         ? ToolTip.up
+    //         : (ToolTip.position - transform.position);
+
+    //     Vector3 toVector = rotateToDirection
+    //         ? Target.forward
+    //         : (Target.position - transform.position);
+
+    //     Quaternion desiredPosRot = Quaternion.FromToRotation(fromVector, toVector);
+
+    //     // -------------------------------------------
+    //     // (Optional) STEP 2: Compute a "roll" rotation to align ToolTip.right -> Target.right
+    //     // This helps fully match orientation, not just pointing direction.
+    //     // If you don't need wrist roll alignment, you can skip this.
+    //     // -------------------------------------------
+    //     Quaternion desiredRollRot = Quaternion.FromToRotation(ToolTip.right, Target.right);
+
+    //     // Combine the "pointing" rotation and the "roll" rotation, then apply it on top of current rotation
+    //     Quaternion combined = desiredRollRot * desiredPosRot * transform.rotation;
+
+    //     // -------------------------------------------
+    //     // STEP 3: Slerp for partial rotation (to avoid big snaps)
+    //     // Increase or decrease the 0.5f factor as desired for smoother/faster motion
+    //     // -------------------------------------------
+    //     transform.rotation = Quaternion.Slerp(transform.rotation, combined, 0.2f);
+
+    //     // -------------------------------------------
+    //     // STEP 4: Enforce hinge rotation only around 'axis'
+    //     //    i.e., remove any rotation that doesn't keep 'transform.rotation * axis' 
+    //     //    aligned with 'transform.parent.rotation * axis'
+    //     // -------------------------------------------
+    //     transform.rotation = Quaternion.FromToRotation(
+    //         transform.rotation * axis,
+    //         transform.parent.rotation * axis
+    //     ) * transform.rotation;
+
+    //     // -------------------------------------------
+    //     // STEP 5: Enforce joint limits (using perpendicular)
+    //     // i.e., clamp the angle so we can't exceed 'maxAngle'
+    //     // -------------------------------------------
+    //     transform.rotation = Quaternion.FromToRotation(
+    //         transform.rotation * perpendicular,
+    //         ConstrainToNormal(transform.rotation * perpendicular,
+    //                           transform.parent.rotation * perpendicular,
+    //                           maxAngle)
+    //     ) * transform.rotation;
+
+    //     // -------------------------------------------
+    //     // STEP 6: Reapply a local offset if needed
+    //     // This ensures that the joint has some baseline rotation
+    //     // -------------------------------------------
+    //     transform.rotation *= Quaternion.Euler(originalRotation);
+    // }
+
+    public void Evaluate(Transform ToolTip, Transform Target, bool rotateToDirection = false) {
         prevAngle = transform.localEulerAngles.y;
 
-        // -------------------------------------------
-        // STEP 1: Compute the main "look" rotation
-        // Either align ToolTip.up -> Target.forward, OR align the vector from joint->ToolTip to joint->Target
-        // -------------------------------------------
-        Vector3 fromVector = rotateToDirection
-            ? ToolTip.up
-            : (ToolTip.position - transform.position);
+        //Rotate the assembly so the tooltip better matches the target position/direction
+        transform.rotation = (rotateToDirection ? Quaternion.FromToRotation(ToolTip.up, Target.forward) : Quaternion.FromToRotation(ToolTip.position - transform.position, Target.position - transform.position)) * transform.rotation;
 
-        Vector3 toVector = rotateToDirection
-            ? Target.forward
-            : (Target.position - transform.position);
+        //Enforce only rotating with the hinge
+        transform.rotation = Quaternion.FromToRotation(transform.rotation * axis, transform.parent.rotation * axis) * transform.rotation;
+        
+        //Enforce Joint Limits
+        transform.rotation = Quaternion.FromToRotation(transform.rotation * perpendicular, ConstrainToNormal(transform.rotation * perpendicular, transform.parent.rotation * perpendicular, maxAngle)) * transform.rotation;
 
-        Quaternion desiredPosRot = Quaternion.FromToRotation(fromVector, toVector);
+        // Align the rotation with the original orientation of the joint
+        transform.rotation = transform.rotation * Quaternion.Euler(originalRotation);
+    }
 
-        // -------------------------------------------
-        // (Optional) STEP 2: Compute a "roll" rotation to align ToolTip.right -> Target.right
-        // This helps fully match orientation, not just pointing direction.
-        // If you don't need wrist roll alignment, you can skip this.
-        // -------------------------------------------
-        Quaternion desiredRollRot = Quaternion.FromToRotation(ToolTip.right, Target.right);
-
-        // Combine the "pointing" rotation and the "roll" rotation, then apply it on top of current rotation
-        Quaternion combined = desiredRollRot * desiredPosRot * transform.rotation;
-
-        // -------------------------------------------
-        // STEP 3: Slerp for partial rotation (to avoid big snaps)
-        // Increase or decrease the 0.5f factor as desired for smoother/faster motion
-        // -------------------------------------------
-        transform.rotation = Quaternion.Slerp(transform.rotation, combined, 1.0f);
-
-        // -------------------------------------------
-        // STEP 4: Enforce hinge rotation only around 'axis'
-        //    i.e., remove any rotation that doesn't keep 'transform.rotation * axis' 
-        //    aligned with 'transform.parent.rotation * axis'
-        // -------------------------------------------
-        transform.rotation = Quaternion.FromToRotation(
-            transform.rotation * axis,
-            transform.parent.rotation * axis
-        ) * transform.rotation;
-
-        // -------------------------------------------
-        // STEP 5: Enforce joint limits (using perpendicular)
-        // i.e., clamp the angle so we can't exceed 'maxAngle'
-        // -------------------------------------------
-        transform.rotation = Quaternion.FromToRotation(
-            transform.rotation * perpendicular,
-            ConstrainToNormal(transform.rotation * perpendicular,
-                              transform.parent.rotation * perpendicular,
-                              maxAngle)
-        ) * transform.rotation;
-
-        // -------------------------------------------
-        // STEP 6: Reapply a local offset if needed
-        // This ensures that the joint has some baseline rotation
-        // -------------------------------------------
-        transform.rotation *= Quaternion.Euler(originalRotation);
+    public void Purturb(float delta) {
+        float angle = transform.localEulerAngles.y;
+        float newAngle = angle + delta;
+        transform.localEulerAngles = new Vector3(0, newAngle, 0);
     }
 }
