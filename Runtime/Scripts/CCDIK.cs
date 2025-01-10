@@ -2,7 +2,17 @@
 using Unity.VRTemplate;
 using UnityEngine;
 using MathNet.Numerics.LinearAlgebra;
-using MathNet.Numerics.LinearAlgebra.Single; // For single-precision (float) matrices
+using MathNet.Numerics.LinearAlgebra.Single;
+using System.Collections.Generic; // For single-precision (float) matrices
+
+[System.Serializable]
+public class DHParameter
+{
+    public float a; // Link length
+    public float alpha; // Link twist
+    public float d; // Link offset
+    public float theta; // Joint angle
+}
 
 public class CCDIK : MonoBehaviour
 {
@@ -16,22 +26,33 @@ public class CCDIK : MonoBehaviour
     public XRKnobAlt[] knobs;
 
     [Header("Number of CCD iterations per frame/update")]
-    public int iterations = 1000;
+    public int iterations = 20;
     public float positionThreshold = 0.1f;
     public float rotationThreshold = 1.0f;
     public float delta = 0.01f;
-    public float alpha = 0.1f;
+    public float alpha = 0.05f;
 
     /// <summary>
     /// Call this to run CCD on the chain, trying to match the target.
     /// </summary>
-    public void InverseKinematics(Transform target)
+    public void InverseKinematics(List<DHParameter> dHParameters, Vector3 baseRotation, Transform target)
     {
+        // TODO get the desired transform relative to the base of the robot
+        // or apply the real world to base transform in forward kinematics
+
+        Debug.Log("-> Running CCDIK on the chain...");
         // We do multiple passes over the entire chain
         for (int i = 0; i < iterations; i++)
         {
             // Get the error between the current position and the target
             Vector3 error = target.position - Tooltip.position;
+            Debug.Log("Error vector: " + error);
+
+            // Print the current end-effector position to the console
+            Debug.Log("Current end-effector position: " + Tooltip.position);
+
+            // Print the desired end-effector position to the console
+            Debug.Log("Desired end-effector position: " + target.position);
 
             // Check if we're close enough to the target
             if (error.magnitude < positionThreshold)
@@ -40,23 +61,57 @@ public class CCDIK : MonoBehaviour
                 break;
             }
 
+            // Reorder the error vector to match the DH coordinate system
+            error = new Vector3(-error.z, error.x, error.y);
+
+            // Print the reordered error vector to the console
+            Debug.Log("Reordered error vector: " + error);
+
             // Compute the Jacobian
-            float[,] jacobian = computeJacobian();
+            float[,] jacobian = computeJacobian(dHParameters, baseRotation);
+            
+            // Print the Jacobian to the console
+            Debug.Log("Jacobian:");
+            for (int r = 0; r < jacobian.GetLength(0); r++)
+            {
+                string row = "";
+                for (int c = 0; c < jacobian.GetLength(1); c++)
+                {
+                    row += jacobian[r, c] + " ";
+                }
+                Debug.Log(row);
+            }
 
             // Compute the pseudoinverse of the Jacobian
             float[,] pseudoInverse = MoorePenrosePseudoInverse(jacobian);
-
-            // Compute the delta angles
-            float[] deltaAngles = new float[joints.Length];
-            for (int j = 0; j < joints.Length; j++)
+            
+            // Print the pseudoinverse to the console
+            Debug.Log("Pseudoinverse:");
+            for (int r = 0; r < pseudoInverse.GetLength(0); r++)
             {
-                deltaAngles[j] = 0f;
-                for (int k = 0; k < 6; k++)
+                string row = "";
+                for (int c = 0; c < pseudoInverse.GetLength(1); c++)
                 {
-                    deltaAngles[j] += pseudoInverse[k, j] * error[k];
+                    row += pseudoInverse[r, c] + " ";
                 }
-                deltaAngles[j] *= alpha;
+                Debug.Log(row);
             }
+
+            // Compute the delta angles using matrix multiplication
+            var errorVector = DenseVector.OfArray(new float[] { error.x, error.y, error.z });
+            var pseudoInverseMatrix = DenseMatrix.OfArray(pseudoInverse);
+            var deltaAnglesVector = -1 * pseudoInverseMatrix * errorVector * alpha;
+            float[] deltaAngles = deltaAnglesVector.ToArray();
+            
+            // Print the delta angles to the console
+            string deltaAnglesStr = "";
+            for (int j = 0; j < deltaAngles.Length; j++)
+            {
+                deltaAnglesStr += deltaAngles[j] + " ";
+            }
+            Debug.Log("Delta angles: " + deltaAnglesStr);
+
+            // TODO check that the new angles are in degrees (I think the deltas are in radians)
 
             // Apply the delta angles to the joints and update the knobs
             for (int j = 0; j < joints.Length; j++)
@@ -64,52 +119,81 @@ public class CCDIK : MonoBehaviour
                 joints[j].transform.localEulerAngles += new Vector3(0f, deltaAngles[j], 0f);
                 if (knobs != null && j < knobs.Length && knobs[j] != null)
                 {
-                    knobs[j].jointAngle += deltaAngles[j];
+                    knobs[j].jointAngle += deltaAngles[j] * Mathf.Rad2Deg;
                 }
             }
-
-            // for (int j = 0; j < joints.Length; j++)
-            // {
-            //     // Make the joint try to align the Tooltip with the target
-            //     joints[j].Evaluate(Tooltip, target, true);
-
-            //     // Calculate how much that joint's local Y angle changed
-            //     float diff = angleDifference(joints[j].prevAngle, joints[j].transform.localEulerAngles.y);
-
-            //     // Adjust any external "knob" or angle readout accordingly
-            //     if (knobs != null && j < knobs.Length && knobs[j] != null)
-            //     {
-            //         knobs[j].jointAngle -= diff;
-            //     }
-            // }
         }
     }
 
-    protected float[,] computeJacobian()
+    protected float[,] computeJacobian(List<DHParameter> dHParameters, Vector3 baseRotation)
     {
         float[,] jacobian = new float[3, joints.Length];
 
-        // Get the current end-effector transform
-        Transform endEffector = joints[joints.Length - 1].transform;
+        // Print the current joint angles to the console
+        string currentAnglesStr = "";
+        for (int j = 0; j < joints.Length; j++)
+        {
+            currentAnglesStr += joints[j].transform.localEulerAngles.y + " ";
+        }
+        Debug.Log("Current joint angles: " + currentAnglesStr);
+
+        // Get the current end-effector position using forward kinematics
+        float[] currentAngles = new float[joints.Length];
+        for (int i = 0; i < joints.Length; i++)
+        {
+            currentAngles[i] = joints[i].transform.localEulerAngles.y * Mathf.Deg2Rad;
+        }
+        Matrix4x4 currentTransform = ForwardKinematics(dHParameters, baseRotation, currentAngles);
+
+        // Print the current transform to the console
+        Debug.Log("Current transform:");
+        for (int r = 0; r < 4; r++)
+        {
+            string row = "";
+            for (int c = 0; c < 4; c++)
+            {
+                row += currentTransform[r, c] + " ";
+            }
+            Debug.Log(row);
+        }
 
         for (int i = 0; i < joints.Length; i++)
         {
-            joints[i].Purturb(delta);
+            // Perturb the current angle
+            float[] forward = (float[])currentAngles.Clone();
+            float[] backward = (float[])currentAngles.Clone();
+            forward[i] += delta;
+            backward[i] -= delta;
 
-            // Get the new end-effector transform
-            Transform newEndEffector = joints[joints.Length - 1].transform;
+            // Print the forward and backward angles to the console
+            string forwardStr = "";
+            for (int j = 0; j < forward.Length; j++)
+            {
+                forwardStr += forward[j] + " ";
+            }
+            Debug.Log("Forward angles: " + forwardStr);
+            string backwardStr = "";
+            for (int j = 0; j < backward.Length; j++)
+            {
+                backwardStr += backward[j] + " ";
+            }
+            Debug.Log("Backward angles: " + backwardStr);
+
+            // Get the new end-effector position using forward kinematics
+            Matrix4x4 forwardTransform = ForwardKinematics(dHParameters, baseRotation, forward);
+            Vector3 forwardEndEffectorPosition = forwardTransform.GetColumn(3);
+            Matrix4x4 backwardTransform = ForwardKinematics(dHParameters, baseRotation, backward);
+            Vector3 backwardEndEffectorPosition = backwardTransform.GetColumn(3);
 
             // Compute the difference in position (ignore rotation for now)
-            Vector3 diff = newEndEffector.position - endEffector.position;
+            Vector3 diff = forwardEndEffectorPosition - backwardEndEffectorPosition;
 
             // Store the difference in the Jacobian
-            jacobian[0, i] = diff.x;
-            jacobian[1, i] = diff.y;
-            jacobian[2, i] = diff.z;
-
-            // Revert the perturbation
-            joints[i].Purturb(-delta);
+            jacobian[0, i] = diff.x / delta;
+            jacobian[1, i] = diff.y / delta;
+            jacobian[2, i] = diff.z / delta;
         }
+
         return jacobian;
     }
 
@@ -149,6 +233,50 @@ public class CCDIK : MonoBehaviour
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Computes the forward kinematics for the given DH parameters and joint angles.
+    /// </summary>
+    /// <param name="dHParameters">List of DH parameters for each joint.</param>
+    /// <param name="jointAngles">Array of current joint angles.</param>
+    /// <returns>The transformation matrix of the end-effector.</returns>
+    public Matrix4x4 ForwardKinematics(List<DHParameter> dHParameters, Vector3 baseRotation, float[] jointAngles)
+    {
+        if (dHParameters.Count != jointAngles.Length)
+        {
+            throw new ArgumentException("The number of DH parameters must match the number of joint angles.");
+        }
+
+        Matrix4x4 result = Matrix4x4.Rotate(Quaternion.Euler(baseRotation));
+
+        for (int i = 0; i < dHParameters.Count; i++)
+        {
+            DHParameter dh = dHParameters[i];
+            // float theta = jointAngles[i] + dh.theta;
+
+            // Matrix4x4 transform = Matrix4x4.TRS(
+            //     new Vector3(dh.a, 0, dh.d),
+            //     Quaternion.Euler(dh.alpha * Mathf.Rad2Deg, theta * Mathf.Rad2Deg, 0),
+            //     Vector3.one
+            // );
+
+            Matrix4x4 dhTransform = DHTransform(dh, jointAngles[i]);
+
+            // Multiply into the cumulative result:
+            result = result * dhTransform.transpose;
+        }
+        
+        return result;
+    }
+
+    private Matrix4x4 DHTransform(DHParameter dh, float angle) 
+    {
+        float theta = angle + dh.theta;
+        return new Matrix4x4(new Vector4(Mathf.Cos(theta), -Mathf.Sin(theta) * Mathf.Cos(dh.alpha), Mathf.Sin(theta) * Mathf.Sin(dh.alpha), dh.a * Mathf.Cos(theta)),
+                            new Vector4(Mathf.Sin(theta) , Mathf.Cos(theta) * Mathf.Cos(dh.alpha), -Mathf.Sin(dh.alpha) * Mathf.Cos(theta), Mathf.Sin(theta) * dh.a),
+                            new Vector4(0, Mathf.Sin(dh.alpha), Mathf.Cos(dh.alpha), dh.d),
+                            new Vector4(0, 0, 0, 1));
     }
 }
 

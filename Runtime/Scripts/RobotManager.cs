@@ -14,6 +14,9 @@ public class RobotManager : MonoBehaviour
     public Vector3 graspedObjectPosition = Vector3.zero;  // Local position of the grasped object
     public Vector3 graspedObjectRotation = Vector3.zero;  // Local rotation of the grasped object in Euler angles
 
+    public List<DHParameter> dhParameters = new List<DHParameter>(); // List of Denavit-Hartenberg parameters
+    public Vector3 baseRotation = Vector3.zero;  // Local rotation of the base of the robot in Euler angles
+
     private ProcessUrdf processUrdf = new ProcessUrdf();
 
     // Start is called before the first frame update
@@ -24,7 +27,7 @@ public class RobotManager : MonoBehaviour
 
     public void SetTargetEEPose(Transform target)
     {
-        urdfModel.GetComponent<SetupIK>().InverseKinematics(target);
+        urdfModel.GetComponent<SetupIK>().InverseKinematics(dhParameters, baseRotation, target);
     }
 
     public Transform GetEEPose()

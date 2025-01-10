@@ -59,9 +59,9 @@ public class SetupIK : MonoBehaviour
         ccdIK.Tooltip = findRealLastChild(lastChild.transform);
     }
 
-    public void InverseKinematics(Transform target)
+    public void InverseKinematics(List<DHParameter> dHParameters, Vector3 baseRotation, Transform target)
     {
-        lastChild.GetComponent<CCDIK>().InverseKinematics(target);
+        lastChild.GetComponent<CCDIK>().InverseKinematics(dHParameters ,baseRotation, target);
     }
 
     Transform findRealLastChild(Transform lastChild) {
