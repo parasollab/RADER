@@ -43,6 +43,14 @@ public class TargetSphere : MonoBehaviour
         grabInteractable.selectExited.AddListener((SelectExitEventArgs interactor) => {
             m_active = false;
         });
+
+        // Set the target to the end effector
+        Transform ee = robotManager.GetEEPose();
+        Vector3 targetPos = ee.position;
+        target.transform.position = targetPos;
+
+        // Move the target a bit forward
+        target.transform.Translate(Vector3.forward * 0.3f);
     }
 
     // Update is called once per frame
@@ -52,12 +60,12 @@ public class TargetSphere : MonoBehaviour
             return;
         }
 
-        if (!m_active) {
-            Transform ee = robotManager.GetEEPose();
-            Vector3 targetPos = ee.position;
-            target.transform.position = targetPos;
-        } else {
+        // if (!m_active) {
+        //     Transform ee = robotManager.GetEEPose();
+        //     Vector3 targetPos = ee.position;
+        //     target.transform.position = targetPos;
+        // } else {
             robotManager.SetTargetEEPose(target.transform);
-        }
+        // }
     }
 }

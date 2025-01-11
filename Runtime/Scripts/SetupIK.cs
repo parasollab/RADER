@@ -2,16 +2,15 @@ using System.Collections.Generic;
 using Unity.VRTemplate;
 using Unity.XR.CoreUtils;
 using UnityEngine;
-using UnityEngine.XR.Interaction.Toolkit;
-
 
 public class SetupIK : MonoBehaviour
 {
-    private List<CCDIKJoint> ccdikJoints = new List<CCDIKJoint>();
+    public IKSolver ikSolver;
+    private List<CCDIKJoint> ikJoints = new List<CCDIKJoint>();
     private List<XRKnobAlt> xrKnobs = new List<XRKnobAlt>();
     private GameObject lastChild;
 
-    void Start()
+    public void Initialize()
     {
         TraverseAndAnalyze(this.gameObject);
         if(lastChild == null)
@@ -19,9 +18,9 @@ public class SetupIK : MonoBehaviour
             Debug.LogError("No XRKnob found in children, error in prefabSetup");
             return;
         }
-        if(ccdikJoints.Count == 0)
+        if(ikJoints.Count == 0)
         {
-            Debug.LogError("No CCDIKJoint found in children, error in prefabSetup");
+            Debug.LogError("No IKJoint found in children, error in prefabSetup");
             return;
         }
         setupIK(lastChild);
@@ -30,7 +29,6 @@ public class SetupIK : MonoBehaviour
 
     void TraverseAndAnalyze(GameObject obj)
     {
-    
         if (obj == null) return;
         if(obj.GetComponent<XRKnobAlt>() != null)
         {
@@ -39,7 +37,7 @@ public class SetupIK : MonoBehaviour
         }
         if(obj.GetComponent<CCDIKJoint>() != null)
         {
-            ccdikJoints.Add(obj.GetComponent<CCDIKJoint>());
+            ikJoints.Add(obj.GetComponent<CCDIKJoint>());
         }
         
         // Recursively process each child
@@ -51,17 +49,44 @@ public class SetupIK : MonoBehaviour
 
     void setupIK(GameObject lastChild)
     {
-        // ccdIK
-        CCDIK ccdIK = lastChild.AddComponent<CCDIK>();
-        
-        ccdIK.joints = ccdikJoints.ToArray();
-        ccdIK.knobs = xrKnobs.ToArray();
-        ccdIK.Tooltip = findRealLastChild(lastChild.transform);
+        if (ikSolver.GetType() == typeof(CCDIK))
+        {
+            // ccdIK
+            // CCDIK ccdIK = lastChild.AddComponent<CCDIK>();
+
+            CCDIK ccdIK = (CCDIK)ikSolver;
+            
+            ccdIK.joints = ikJoints.ToArray();
+            ccdIK.knobs = xrKnobs.ToArray();
+            ccdIK.Tooltip = findRealLastChild(lastChild.transform);
+        }
     }
 
-    public void InverseKinematics(List<DHParameter> dHParameters, Vector3 baseRotation, Transform target)
+    public void SetJointAngles(float[] angles)
     {
-        lastChild.GetComponent<CCDIK>().InverseKinematics(dHParameters ,baseRotation, target);
+        if (xrKnobs != null && xrKnobs.Count == ikJoints.Count && angles.Length == ikJoints.Count)
+        {
+            for (int j = 0; j < angles.Length; j++)
+            {
+                float oldAngle = ikJoints[j].transform.localEulerAngles.y;
+                float diff = AngleDifference(oldAngle, angles[j]);
+
+                // Subtract the difference from the knob angle
+                xrKnobs[j].jointAngle -= diff;
+            }
+        } else {
+            Debug.LogError("Invalid number of angles or knobs");
+        }
+    }
+
+    public float[] GetJointAngles()
+    {
+        float[] angles = new float[xrKnobs.Count];
+        for (int j = 0; j < xrKnobs.Count; j++)
+        {
+            angles[j] = xrKnobs[j].jointAngle;
+        }
+        return angles;
     }
 
     Transform findRealLastChild(Transform lastChild) {
@@ -71,5 +96,16 @@ public class SetupIK : MonoBehaviour
             }
         }
         return lastChild;
+    }
+
+    /// <summary>
+    /// Ensures we get a delta in [-180, 180].
+    /// </summary>
+    private float AngleDifference(float a, float b)
+    {
+        float diff = a - b;
+        while (diff > 180f) diff -= 360f;
+        while (diff < -180f) diff += 360f;
+        return diff;
     }
 }

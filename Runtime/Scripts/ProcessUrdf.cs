@@ -38,7 +38,8 @@ public class ProcessUrdf : MonoBehaviour
 
     public void ProcessModel(GameObject urdfModel, GameObject gripper, GameObject graspedObject, 
         Vector3 graspedObjectPosition, Vector3 graspedObjectRotation,
-        ColorAffordanceThemeDatumProperty affordanceThemeDatum)
+        ColorAffordanceThemeDatumProperty affordanceThemeDatum,
+        IKSolver ikSolver)
     {
         if (urdfModel == null)
         {
@@ -70,8 +71,9 @@ public class ProcessUrdf : MonoBehaviour
         }
 
         urdfModel.AddComponent<SetupIK>();
-        
-        Debug.Log("SetupUI done");
+        SetupIK setupIK = urdfModel.GetComponent<SetupIK>();
+        setupIK.ikSolver = ikSolver;
+        setupIK.Initialize();
 
         #if UNITY_EDITOR
         savePrefab(urdfModel, urdfModel.name);
@@ -131,6 +133,9 @@ public class ProcessUrdf : MonoBehaviour
             
             // Do not delete scripts of type RobotManager
             if (script.GetType().Name == "RobotManager") continue;
+
+            // Do not delete scripts that inherit from IKSolver
+            if (script.GetType().IsSubclassOf(typeof(IKSolver))) continue;
 
             DestroyImmediate(script); 
         }
@@ -204,9 +209,9 @@ public class ProcessUrdf : MonoBehaviour
             // child.transform.localPosition = Vector3.zero;
             // child.transform.localRotation = Quaternion.identity;
 
-            // // Add CCDIK components to the child, and add references to the list
-            CCDIKJoint ccdik = child.AddComponent<CCDIKJoint>();
-            ccdik.axis = new Vector3(0, 1, 0);
+            // // Add IK components to the child, and add references to the list
+            CCDIKJoint ik = child.AddComponent<CCDIKJoint>();
+            ik.axis = new Vector3(0, 1, 0);
 
             // // Add the XRKnobAlt
             XRKnobAlt knob = knobParent.AddComponent<XRKnobAlt>();

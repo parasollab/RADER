@@ -7,6 +7,7 @@ public class RobotManager : MonoBehaviour
 {
     public GameObject urdfModel;  // Reference to the base of the robot's URDF model
     public string robotNamespace; // The namespace of the robot
+    public IKSolver ikSolver;  // Reference to the IK solver component
     public ColorAffordanceThemeDatumProperty affordanceThemeDatum;
 
     public GameObject gripper;  // Reference to the gripper object if any
@@ -14,25 +15,44 @@ public class RobotManager : MonoBehaviour
     public Vector3 graspedObjectPosition = Vector3.zero;  // Local position of the grasped object
     public Vector3 graspedObjectRotation = Vector3.zero;  // Local rotation of the grasped object in Euler angles
 
-    public List<DHParameter> dhParameters = new List<DHParameter>(); // List of Denavit-Hartenberg parameters
-    public Vector3 baseRotation = Vector3.zero;  // Local rotation of the base of the robot in Euler angles
-
     private ProcessUrdf processUrdf = new ProcessUrdf();
 
     // Start is called before the first frame update
     void Awake()
     {
-        processUrdf.ProcessModel(urdfModel, gripper, graspedObject, graspedObjectPosition, graspedObjectRotation, affordanceThemeDatum);
+        processUrdf.ProcessModel(urdfModel, gripper, graspedObject, 
+                                graspedObjectPosition, graspedObjectRotation, 
+                                affordanceThemeDatum, ikSolver);
     }
 
     public void SetTargetEEPose(Transform target)
     {
-        urdfModel.GetComponent<SetupIK>().InverseKinematics(dhParameters, baseRotation, target);
+        // Print the type of the ikSolver
+        Debug.Log("IK Solver type: " + ikSolver.GetType());
+
+        float[] currentAngles = GetJointAngles();
+        float[] jointAngles = ikSolver.InverseKinematics(target, currentAngles);
+        SetJointAngles(jointAngles);
     }
 
     public Transform GetEEPose()
     {
         return processUrdf.LastLink.transform;
+    }
+
+    public float[] GetJointAngles()
+    {
+        return urdfModel.GetComponent<SetupIK>().GetJointAngles();
+    }
+
+    public void SetJointAngles(float[] jointAngles)
+    {
+        urdfModel.GetComponent<SetupIK>().SetJointAngles(jointAngles);
+    }
+
+    public void SetJointAngle(int jointIndex, float jointAngle)
+    {
+        throw new System.NotImplementedException();
     }
 
     public void SetGripperConfiguration()
