@@ -13,8 +13,6 @@ public class CCDIK : IKSolver {
 
     public override float[] InverseKinematics(Transform target, float[] initialAngles)
     {
-        Debug.Log("CCDIK: InverseKinematics");
-
         float[] angles = new float[joints.Length];
 
         for (int j = 0; j < joints.Length; j++)

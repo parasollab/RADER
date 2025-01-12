@@ -27,9 +27,6 @@ public class RobotManager : MonoBehaviour
 
     public void SetTargetEEPose(Transform target)
     {
-        // Print the type of the ikSolver
-        Debug.Log("IK Solver type: " + ikSolver.GetType());
-
         float[] currentAngles = GetJointAngles();
         float[] jointAngles = ikSolver.InverseKinematics(target, currentAngles);
         SetJointAngles(jointAngles);
