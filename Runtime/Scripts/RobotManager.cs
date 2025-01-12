@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -47,9 +48,34 @@ public class RobotManager : MonoBehaviour
         urdfModel.GetComponent<SetupIK>().SetJointAngles(jointAngles);
     }
 
+    public float GetJointAngle(int jointIndex)
+    {
+        return urdfModel.GetComponent<SetupIK>().GetJointAngle(jointIndex);
+    }
+
     public void SetJointAngle(int jointIndex, float jointAngle)
     {
-        throw new System.NotImplementedException();
+        urdfModel.GetComponent<SetupIK>().SetJointAngle(jointIndex, jointAngle);
+    }
+
+    public List<string> GetJointNames()
+    {
+        return processUrdf.GetJointNames();
+    }
+
+    public List<Tuple<float, float>> GetJointLimits()
+    {
+        return processUrdf.GetJointLimits();
+    }
+
+    public void SetHomePosition()
+    {
+        processUrdf.SetHomePosition();
+    }
+
+    public void ResetHomePosition()
+    {
+        processUrdf.ResetHomePosition();
     }
 
     public void SetGripperConfiguration()

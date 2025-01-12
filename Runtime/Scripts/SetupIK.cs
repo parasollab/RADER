@@ -79,6 +79,20 @@ public class SetupIK : MonoBehaviour
         }
     }
 
+    public void SetJointAngle(int jointIndex, float jointAngle)
+    {
+        if (xrKnobs != null && xrKnobs.Count == ikJoints.Count)
+        {
+            float oldAngle = ikJoints[jointIndex].transform.localEulerAngles.y;
+            float diff = AngleDifference(oldAngle, jointAngle);
+
+            // Subtract the difference from the knob angle
+            xrKnobs[jointIndex].jointAngle -= diff;
+        } else {
+            Debug.LogError("Invalid number of angles or knobs");
+        }
+    }
+
     public float[] GetJointAngles()
     {
         float[] angles = new float[xrKnobs.Count];
@@ -87,6 +101,11 @@ public class SetupIK : MonoBehaviour
             angles[j] = xrKnobs[j].jointAngle;
         }
         return angles;
+    }
+
+    public float GetJointAngle(int jointIndex)
+    {
+        return xrKnobs[jointIndex].jointAngle;
     }
 
     Transform findRealLastChild(Transform lastChild) {

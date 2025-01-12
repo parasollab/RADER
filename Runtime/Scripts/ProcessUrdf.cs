@@ -267,6 +267,16 @@ public class ProcessUrdf : MonoBehaviour
         }
     }
 
+    public List<string> GetJointNames()
+    {
+        return jointNames;
+    }
+
+    public List<Tuple<float, float>> GetJointLimits()
+    {
+        return jointLimits;
+    }
+
     void createInteractionAffordance(GameObject child, XRKnobAlt knob, GameObject knobParent, ColorAffordanceThemeDatumProperty affordanceThemeDatum)
     {
         // create interaction affordance
