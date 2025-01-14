@@ -27,7 +27,7 @@ public class TargetSphere : MonoBehaviour
         }
 
         // xr events
-        XRGrabInteractable grabInteractable = target.GetComponent<XRGrabInteractable>();
+        UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable grabInteractable = target.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable>();
 
         if (grabInteractable == null) {
             Debug.LogError("XRGrabInteractable not found");

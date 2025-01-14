@@ -8,7 +8,7 @@ namespace Unity.VRTemplate
     /// <summary>
     /// An interactable knob that directly controls the rotation of a robot joint in VR.
     /// </summary>
-    public class XRKnobAlt : XRBaseInteractable
+    public class XRKnobAlt : UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable
     {
         [SerializeField]
         [Tooltip("A unique identifier for this knob instance")]
@@ -38,7 +38,7 @@ namespace Unity.VRTemplate
         [Tooltip("Events to trigger when the knob is rotated")]
         public UnityEvent<float> m_OnValueChange = new UnityEvent<float>();
         
-        IXRSelectInteractor m_Interactor;
+        UnityEngine.XR.Interaction.Toolkit.Interactors.IXRSelectInteractor m_Interactor;
         float m_Value = 0.0f;
         
         public int uniqueID
@@ -125,7 +125,7 @@ namespace Unity.VRTemplate
             }
         }
 
-        public override Transform GetAttachTransform(IXRInteractor interactor)
+        public override Transform GetAttachTransform(UnityEngine.XR.Interaction.Toolkit.Interactors.IXRInteractor interactor)
         {
             return m_Handle;
         }

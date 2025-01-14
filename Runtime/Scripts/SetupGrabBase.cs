@@ -15,7 +15,7 @@ public class SetupGrabBase : MonoBehaviour
         Rigidbody baseGrabRb = obj.GetComponent<Rigidbody>();
         baseGrabRb.isKinematic = true;
         baseGrabRb.useGravity = false;
-        XRGrabInteractable grab = obj.AddComponent<XRGrabInteractable>();
+        UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable grab = obj.AddComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable>();
 
         
         grab.colliders.Clear();
