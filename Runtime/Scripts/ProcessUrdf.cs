@@ -9,6 +9,7 @@ using UnityEngine.XR.Interaction.Toolkit.AffordanceSystem.Receiver.Rendering;
 using UnityEngine.XR.Interaction.Toolkit.AffordanceSystem.Rendering;
 using UnityEngine.XR.Interaction.Toolkit.AffordanceSystem.Theme.Primitives;
 using Unity.XR.CoreUtils;
+using Unity.Robotics.UrdfImporter;
 
 public class ProcessUrdf : MonoBehaviour
 {
@@ -30,14 +31,18 @@ public class ProcessUrdf : MonoBehaviour
 
     private GameObject lastLink;
 
+    private List<Tuple<string, string>> mimicJointChildren = new List<Tuple<string, string>>();
+    private List<Tuple<GameObject, double>> mimicJointOffsets = new List<Tuple<GameObject, double>>();
+    private List<Tuple<GameObject, double>> mimicJointMultipliers = new List<Tuple<GameObject, double>>();
+
     // Getter for the last link
     public GameObject LastLink
     {
         get { return lastLink; }
     }
 
-    public void ProcessModel(GameObject urdfModel, GameObject gripper, GameObject graspedObject, 
-        Vector3 graspedObjectPosition, Vector3 graspedObjectRotation,
+    [Obsolete]
+    public void ProcessModel(GameObject urdfModel,
         ColorAffordanceThemeDatumProperty affordanceThemeDatum,
         IKSolver ikSolver)
     {
@@ -57,19 +62,6 @@ public class ProcessUrdf : MonoBehaviour
         SetupGrabBase setupBase = urdfModel.GetComponent<SetupGrabBase>();
         setupBase.Base = grabJoint;
 
-        // Instantiate and attach the gripper prefab as a child to the last link
-        if (gripper != null)
-        {
-            GameObject gripperInstance = AddGripper(gripper, lastLink);
-            TraverseAndModify(gripperInstance);
-        }
-
-        // Instantiate and attach the grasped object prefab as a child to the last link
-        if (graspedObject != null)
-        {
-            AddGraspedObject(graspedObject, lastLink, graspedObjectPosition, graspedObjectRotation);
-        }
-
         urdfModel.AddComponent<SetupIK>();
         SetupIK setupIK = urdfModel.GetComponent<SetupIK>();
         setupIK.ikSolver = ikSolver;
@@ -78,29 +70,6 @@ public class ProcessUrdf : MonoBehaviour
         #if UNITY_EDITOR
         savePrefab(urdfModel, urdfModel.name);
         #endif
-    }
-
-    GameObject AddGripper(GameObject gripper, GameObject lastLink)
-    {
-        // Instantiate the gripper prefab and attach it to the last link
-        GameObject gripperInstance = Instantiate(gripper, lastLink.transform.position, lastLink.transform.rotation);
-        gripperInstance.name = "Gripper"; // Optional: Rename the gripper instance
-        gripperInstance.transform.SetParent(lastLink.transform);
-        gripperInstance.transform.localPosition = Vector3.zero;
-
-        // Rotate the gripper by 90 degrees around the y-axis
-        gripperInstance.transform.localRotation = Quaternion.Euler(0, 90, 0);
-        return gripperInstance;
-    }
-
-    void AddGraspedObject(GameObject graspedObject, GameObject lastLink, Vector3 graspedObjectPosition, Vector3 graspedObjectRotation)
-    {
-        // Instantiate the grasped object prefab and attach it to the last link
-        GameObject graspedObjectInstance = Instantiate(graspedObject, lastLink.transform.position, lastLink.transform.rotation);
-        graspedObjectInstance.name = "GraspedObject"; // Optional: Rename the grasped object instance
-        graspedObjectInstance.transform.SetParent(lastLink.transform);
-        graspedObjectInstance.transform.localPosition = graspedObjectPosition;  // These fields can be edited in the Unity Inspector
-        graspedObjectInstance.transform.localRotation = Quaternion.Euler(graspedObjectRotation);
     }
 
     void TraverseAndModify(GameObject obj)
@@ -130,6 +99,25 @@ public class ProcessUrdf : MonoBehaviour
         foreach (var script in scripts)
         {   
             fixedJoint = script.GetType().Name == "UrdfJointFixed";
+
+            // Check if this is a mimic joint
+            if (script.GetType().Name == "UrdfJointRevolute")
+            {
+                var urdfJointRevolute = (UrdfJointRevolute)script;
+                if (urdfJointRevolute.mimic)
+                {
+                    mimicJointChildren.Add(new Tuple<string, string>(obj.name, urdfJointRevolute.mimicJointName));
+                    mimicJointOffsets.Add(new Tuple<GameObject, double>(obj, urdfJointRevolute.mimicOffset));
+                    mimicJointMultipliers.Add(new Tuple<GameObject, double>(obj, urdfJointRevolute.mimicMultiplier));
+
+                    // Print the mimic joint data
+                    Debug.Log("Mimic joint: " + obj.name + " " + urdfJointRevolute.mimicJointName + " " + urdfJointRevolute.mimicOffset + " " + urdfJointRevolute.mimicMultiplier);
+                }
+                else
+                {
+                    Debug.Log("Not a mimic joint: " + obj.name);
+                }
+            }
             
             // Do not delete scripts of type RobotManager
             if (script.GetType().Name == "RobotManager") continue;
@@ -189,6 +177,7 @@ public class ProcessUrdf : MonoBehaviour
         }
     }
 
+    [Obsolete]
     void reParent(ColorAffordanceThemeDatumProperty affordanceThemeDatum)
     {
         for (int i = reparentingList.Count - 1; i >= 0; i--)
@@ -277,6 +266,7 @@ public class ProcessUrdf : MonoBehaviour
         return jointLimits;
     }
 
+    [Obsolete]
     void createInteractionAffordance(GameObject child, XRKnobAlt knob, GameObject knobParent, ColorAffordanceThemeDatumProperty affordanceThemeDatum)
     {
         // create interaction affordance
