@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using Unity.VRTemplate;
 using Unity.XR.CoreUtils;
 using UnityEngine;
@@ -6,9 +7,16 @@ using UnityEngine;
 public class SetupIK : MonoBehaviour
 {
     public IKSolver ikSolver;
+    public Transform Tooltip;
     private List<CCDIKJoint> ikJoints = new List<CCDIKJoint>();
     private List<XRKnobAlt> xrKnobs = new List<XRKnobAlt>();
     private GameObject lastChild;
+
+    public Dictionary<string, List<string>> mimicJointMap = new Dictionary<string, List<string>>();
+    public Dictionary<string, double> mimicJointOffsetMap = new Dictionary<string, double>();
+    public Dictionary<string, double> mimicJointMultiplierMap = new Dictionary<string, double>();
+
+    private List<Tuple<string, int>> nameToNumber = new List<Tuple<string, int>>();
 
     public void Initialize()
     {
@@ -23,7 +31,7 @@ public class SetupIK : MonoBehaviour
             Debug.LogError("No IKJoint found in children, error in prefabSetup");
             return;
         }
-        setupIK(lastChild);
+        setupIK();
     }
 
 
@@ -34,6 +42,7 @@ public class SetupIK : MonoBehaviour
         {
             lastChild = obj.gameObject;
             xrKnobs.Add(obj.GetComponent<XRKnobAlt>());
+            nameToNumber.Add(new Tuple<string, int>(obj.name, xrKnobs.Count - 1));
         }
         if(obj.GetComponent<CCDIKJoint>() != null)
         {
@@ -47,9 +56,9 @@ public class SetupIK : MonoBehaviour
         }
     }
 
-    void setupIK(GameObject lastChild)
+    void setupIK()
     {
-        if (ikSolver.GetType() == typeof(CCDIK))
+        if (ikSolver != null && ikSolver.GetType() == typeof(CCDIK))
         {
             // ccdIK
             // CCDIK ccdIK = lastChild.AddComponent<CCDIK>();
@@ -58,7 +67,7 @@ public class SetupIK : MonoBehaviour
             
             ccdIK.joints = ikJoints.ToArray();
             ccdIK.knobs = xrKnobs.ToArray();
-            ccdIK.Tooltip = findRealLastChild(lastChild.transform);
+            ccdIK.Tooltip = Tooltip;
         }
     }
 
@@ -93,6 +102,39 @@ public class SetupIK : MonoBehaviour
         }
     }
 
+    public void SetJointAngle(string jointName, float jointAngle, bool ignoreNotFound=true)
+    {
+        // Try to set the joint if it exists
+        try {
+            int jointIndex = nameToNumber.Find(x => x.Item1 == jointName).Item2;
+            SetJointAngle(jointIndex, jointAngle);
+        } catch (Exception)
+        {
+            if (!ignoreNotFound) {
+                // Try prepending "KnobParent_" to the joint name
+                jointName = "KnobParent_" + jointName;
+                try {
+                    int jointIndex = nameToNumber.Find(x => x.Item1 == jointName).Item2;
+                    SetJointAngle(jointIndex, jointAngle);
+                } catch (Exception)
+                {
+                    Debug.LogError("Joint not found: " + jointName);
+                }
+            }
+        }
+
+        // Check for joints that mimic this joint
+        if (mimicJointMap.ContainsKey(jointName))
+        {
+            foreach (string mimicJoint in mimicJointMap[jointName])
+            {
+                double offset = mimicJointOffsetMap[mimicJoint];
+                double multiplier = mimicJointMultiplierMap[mimicJoint];
+                SetJointAngle(mimicJoint, (float)(jointAngle * multiplier + offset), false);
+            }
+        }
+    }
+
     public float[] GetJointAngles()
     {
         float[] angles = new float[xrKnobs.Count];
@@ -106,15 +148,6 @@ public class SetupIK : MonoBehaviour
     public float GetJointAngle(int jointIndex)
     {
         return xrKnobs[jointIndex].jointAngle;
-    }
-
-    Transform findRealLastChild(Transform lastChild) {
-        foreach (Transform child in lastChild) {
-            if (child.gameObject.GetNamedChild("Collisions") != null && child.gameObject.GetNamedChild("Visuals") != null) {
-                return findRealLastChild(child);
-            }
-        }
-        return lastChild;
     }
 
     /// <summary>

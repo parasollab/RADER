@@ -13,6 +13,9 @@ public class CCDIK : IKSolver {
 
     public override float[] InverseKinematics(Transform target, float[] initialAngles)
     {
+        // Print the name of the tooltip
+        Debug.Log("Tooltip: " + Tooltip.name);
+
         float[] angles = new float[joints.Length];
 
         for (int j = 0; j < joints.Length; j++)

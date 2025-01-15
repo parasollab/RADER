@@ -31,9 +31,10 @@ public class ProcessUrdf : MonoBehaviour
 
     private GameObject lastLink;
 
-    private List<Tuple<string, string>> mimicJointChildren = new List<Tuple<string, string>>();
-    private List<Tuple<GameObject, double>> mimicJointOffsets = new List<Tuple<GameObject, double>>();
-    private List<Tuple<GameObject, double>> mimicJointMultipliers = new List<Tuple<GameObject, double>>();
+    // parent -> list of children
+    private Dictionary<string, List<string>> mimicJointMap = new Dictionary<string, List<string>>();
+    private Dictionary<string, double> mimicJointOffsetMap = new Dictionary<string, double>();
+    private Dictionary<string, double> mimicJointMultiplierMap = new Dictionary<string, double>();
 
     // Getter for the last link
     public GameObject LastLink
@@ -44,7 +45,7 @@ public class ProcessUrdf : MonoBehaviour
     [Obsolete]
     public void ProcessModel(GameObject urdfModel,
         ColorAffordanceThemeDatumProperty affordanceThemeDatum,
-        IKSolver ikSolver)
+        IKSolver ikSolver=null)
     {
         if (urdfModel == null)
         {
@@ -65,6 +66,10 @@ public class ProcessUrdf : MonoBehaviour
         urdfModel.AddComponent<SetupIK>();
         SetupIK setupIK = urdfModel.GetComponent<SetupIK>();
         setupIK.ikSolver = ikSolver;
+        setupIK.mimicJointMap = mimicJointMap;
+        setupIK.mimicJointOffsetMap = mimicJointOffsetMap;
+        setupIK.mimicJointMultiplierMap = mimicJointMultiplierMap;
+        setupIK.Tooltip = lastLink.transform;
         setupIK.Initialize();
 
         #if UNITY_EDITOR
@@ -106,9 +111,19 @@ public class ProcessUrdf : MonoBehaviour
                 var urdfJointRevolute = (UrdfJointRevolute)script;
                 if (urdfJointRevolute.mimic)
                 {
-                    mimicJointChildren.Add(new Tuple<string, string>(obj.name, urdfJointRevolute.mimicJointName));
-                    mimicJointOffsets.Add(new Tuple<GameObject, double>(obj, urdfJointRevolute.mimicOffset));
-                    mimicJointMultipliers.Add(new Tuple<GameObject, double>(obj, urdfJointRevolute.mimicMultiplier));
+                    // Add this joint to the list of joints controlled by the parent
+                    if (mimicJointMap.ContainsKey(urdfJointRevolute.mimicJointName))
+                    {
+                        mimicJointMap[urdfJointRevolute.mimicJointName].Add(obj.name);
+                    }
+                    else
+                    {
+                        mimicJointMap[urdfJointRevolute.mimicJointName] = new List<string> { obj.name };
+                    }
+
+                    // Add the mimic joint offset and multiplier to the respective dictionaries
+                    mimicJointOffsetMap[obj.name] = urdfJointRevolute.mimicOffset;
+                    mimicJointMultiplierMap[obj.name] = urdfJointRevolute.mimicMultiplier;
 
                     // Print the mimic joint data
                     Debug.Log("Mimic joint: " + obj.name + " " + urdfJointRevolute.mimicJointName + " " + urdfJointRevolute.mimicOffset + " " + urdfJointRevolute.mimicMultiplier);
