@@ -9,7 +9,10 @@ namespace Unity.VRTemplate
     {
         X,
         Y,
-        Z
+        Z,
+        NegativeX,
+        NegativeY,
+        NegativeZ
     }
 
     /// <summary>
@@ -150,7 +153,7 @@ namespace Unity.VRTemplate
         void UpdateRotation()
         {
             var interactorTransform = m_Interactor.GetAttachTransform(this);
-            float knobRotation = 0.0f;
+            float knobRotation;
             switch (m_RotationAxis)
             {
                 case KnobAxis.X:
@@ -161,6 +164,15 @@ namespace Unity.VRTemplate
                     break;
                 case KnobAxis.Z:
                     knobRotation = transform.InverseTransformDirection(interactorTransform.forward).z * 180.0f;
+                    break;
+                case KnobAxis.NegativeX:
+                    knobRotation = -transform.InverseTransformDirection(interactorTransform.forward).x * 180.0f;
+                    break;
+                case KnobAxis.NegativeY:
+                    knobRotation = -transform.InverseTransformDirection(interactorTransform.forward).y * 180.0f;
+                    break;
+                case KnobAxis.NegativeZ:
+                    knobRotation = -transform.InverseTransformDirection(interactorTransform.forward).z * 180.0f;
                     break;
                 default:
                     knobRotation = 0.0f;
@@ -189,6 +201,15 @@ namespace Unity.VRTemplate
                     case KnobAxis.Z:
                         m_Handle.localEulerAngles = new Vector3(0.0f, 0.0f, angle);
                         break;
+                    case KnobAxis.NegativeX:
+                        m_Handle.localEulerAngles = new Vector3(-angle, 0.0f, 0.0f);
+                        break;
+                    case KnobAxis.NegativeY:
+                        m_Handle.localEulerAngles = new Vector3(0.0f, -angle, 0.0f);
+                        break;
+                    case KnobAxis.NegativeZ:
+                        m_Handle.localEulerAngles = new Vector3(0.0f, 0.0f, -angle);
+                        break;
                     default:
                         m_Handle.localEulerAngles = new Vector3(0.0f, angle, 0.0f);
                         break;
@@ -210,6 +231,15 @@ namespace Unity.VRTemplate
                         break;
                     case KnobAxis.Z:
                         m_RobotJoint.localEulerAngles = new Vector3(0.0f, 0.0f, angle); // Assuming rotation around Z-axis
+                        break;
+                    case KnobAxis.NegativeX:
+                        m_RobotJoint.localEulerAngles = new Vector3(-angle, 0.0f, 0.0f); // Assuming rotation around X-axis
+                        break;
+                    case KnobAxis.NegativeY:
+                        m_RobotJoint.localEulerAngles = new Vector3(0.0f, -angle, 0.0f); // Assuming rotation around Y-axis
+                        break;
+                    case KnobAxis.NegativeZ:
+                        m_RobotJoint.localEulerAngles = new Vector3(0.0f, 0.0f, -angle); // Assuming rotation around Z-axis
                         break;
                     default:
                         m_RobotJoint.localEulerAngles = new Vector3(0.0f, angle, 0.0f); // Assuming rotation around Y-axis

@@ -9,6 +9,8 @@ public class Robotiq2fGripperMirror : MonoBehaviour
     public GameObject rightRobot;
     public string leftMasterJoint = "finger_joint";
     public string rightMasterJoint = "finger_joint";
+    public float maxFingerDist = 0.11f;
+    public float maxJointAngle = 45.0f;
 
     private RobotManager leftRobotManager;
     private RobotManager rightRobotManager;
@@ -80,25 +82,48 @@ public class Robotiq2fGripperMirror : MonoBehaviour
 
                     float distance = Vector3.Distance(thumbPosition, indexPosition);
 
-                    // Print the positions and the distance between them
-                    Debug.Log("Thumb position: " + thumbPosition);
-                    Debug.Log("Index position: " + indexPosition);
-                    Debug.Log("Distance: " + distance);
-
                     // Set the gripper's joint angle based on the distance between the thumb and the index finger
-                    float jointAngle = distance * 200;
+                    float jointAngle = Map(distance, 0.0f, maxFingerDist, 0.0f, maxJointAngle, true);
                     leftRobotManager.SetGripperByJointName(leftMasterJoint, jointAngle);
-
-                    // Print the joint angle
-                    Debug.Log("Joint angle: " + jointAngle);
                 }
 
                 // Repeat the same process for the right hand
                 if (rightHand.isTracked)
                 {
-                    // TODO
+                    // Get the distance between the thumb and the index finger
+                    XRHandJoint thumbTip = rightHand.GetJoint(XRHandJointID.ThumbTip);
+                    XRHandJoint indexTip = rightHand.GetJoint(XRHandJointID.IndexTip);
+
+                    Vector3 thumbPosition;
+                    Pose thumbPose;
+                    if (thumbTip.TryGetPose(out thumbPose))
+                    {
+                      thumbPosition = thumbPose.position;
+                    } else {
+                      break;
+                    }
+
+                    Vector3 indexPosition;
+                    Pose indexPose;
+                    if (indexTip.TryGetPose(out indexPose))
+                    {
+                      indexPosition = indexPose.position;
+                    } else {
+                      break;
+                    }
+
+                    float distance = Vector3.Distance(thumbPosition, indexPosition);
+
+                    // Set the gripper's joint angle based on the distance between the thumb and the index finger
+                    float jointAngle = Map(distance, 0.0f, maxFingerDist, 0.0f, maxJointAngle, true);
+                    rightRobotManager.SetGripperByJointName(rightMasterJoint, jointAngle);
                 }
                 break;
         }
+    }
+
+    private float Map(float value, float fromLow, float fromHigh, float toLow, float toHigh, bool invert = false)
+    {
+        return invert ? toHigh - (value - fromLow) * (toHigh - toLow) / (fromHigh - fromLow) : (value - fromLow) * (toHigh - toLow) / (fromHigh - fromLow) + toLow;
     }
 }
