@@ -18,6 +18,8 @@ RADER has undergone a sizeable refactor. Here are the main affected components:
 
 5) The refactoring of `SetupUI` to use `RobotManager`. Instead of populating `SetupUI` from the URDF processing script, it is now a separate component. The purpose of this is for code clarity/ease of use, as well as setting the foundation to accommodate controlling multiple robots with one UI menu. The `SetupUI` script should be added to an empty game object in the scene and populated to be used. This script now takes a list of robot GameObjects, but currently only the first is used. We will need to update it to account for multiple robots.
 
+6) To support mimic joints (used by 2-finger grippers), we have made a fork of Unity's URDF importer. This has been added as a submodule to both `VR_Robot` and `AR_RADER`. Make sure you run `git submodule update --init` after you pull the new changes.
+
 ## Package Installation
 
 ### Dependencies
