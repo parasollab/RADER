@@ -86,7 +86,7 @@ public class Robotiq2fGripperMirror : MonoBehaviour
                     Debug.Log("Distance: " + distance);
 
                     // Set the gripper's joint angle based on the distance between the thumb and the index finger
-                    float jointAngle = distance * 100;
+                    float jointAngle = distance * 200;
                     leftRobotManager.SetGripperByJointName(leftMasterJoint, jointAngle);
 
                     // Print the joint angle

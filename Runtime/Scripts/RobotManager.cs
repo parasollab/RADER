@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Unity.VRTemplate;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit.AffordanceSystem.Theme.Primitives;
 
@@ -9,6 +10,7 @@ public class RobotManager : MonoBehaviour
 {
     public GameObject urdfModel;  // Reference to the base of the robot's URDF model
     public GameObject gripper;
+    public KnobAxis gripperKnobAxis = KnobAxis.Y;
     public string robotNamespace; // The namespace of the robot
     public IKSolver ikSolver;  // Reference to the IK solver component
     [Obsolete]
@@ -25,7 +27,7 @@ public class RobotManager : MonoBehaviour
 
         if (gripper != null)
         {
-            gripperProcessUrdf.ProcessModel(gripper, affordanceThemeDatum);
+            gripperProcessUrdf.ProcessModel(gripper, affordanceThemeDatum, knobAxis: gripperKnobAxis);
             AddGripper(gripper, processUrdf.LastLink);
         }
     }

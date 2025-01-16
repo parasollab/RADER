@@ -45,7 +45,7 @@ public class ProcessUrdf : MonoBehaviour
     [Obsolete]
     public void ProcessModel(GameObject urdfModel,
         ColorAffordanceThemeDatumProperty affordanceThemeDatum,
-        IKSolver ikSolver=null)
+        IKSolver ikSolver=null, KnobAxis knobAxis=KnobAxis.Y)
     {
         if (urdfModel == null)
         {
@@ -54,7 +54,7 @@ public class ProcessUrdf : MonoBehaviour
         }
 
         TraverseAndModify(urdfModel);
-        reParent(affordanceThemeDatum);
+        reParent(affordanceThemeDatum, knobAxis);
 
         GameObject lastChild = reparentingList[reparentingList.Count - 1].Key;
         lastLink = findRealLastChild(lastChild);
@@ -193,7 +193,7 @@ public class ProcessUrdf : MonoBehaviour
     }
 
     [Obsolete]
-    void reParent(ColorAffordanceThemeDatumProperty affordanceThemeDatum)
+    void reParent(ColorAffordanceThemeDatumProperty affordanceThemeDatum, KnobAxis knobAxis=KnobAxis.Y)
     {
         for (int i = reparentingList.Count - 1; i >= 0; i--)
         {
@@ -223,6 +223,7 @@ public class ProcessUrdf : MonoBehaviour
             // knob.clampedMotion = clampedMotionList[i];
             knob.jointMinAngle = jointLimits[i].Item1;
             knob.jointMaxAngle = jointLimits[i].Item2;
+            knob.rotationAxis = knobAxis;
 
             // Debug.LogError("Parent " + knobParent.name + " Joint " + knob.name + " upper limit: " + knob.maxAngle + " lower limit: " + knob.minAngle);
 

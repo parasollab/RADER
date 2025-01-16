@@ -5,6 +5,13 @@ using UnityEngine.XR.Interaction.Toolkit;
 
 namespace Unity.VRTemplate
 {
+    public enum KnobAxis
+    {
+        X,
+        Y,
+        Z
+    }
+
     /// <summary>
     /// An interactable knob that directly controls the rotation of a robot joint in VR.
     /// </summary>
@@ -33,6 +40,10 @@ namespace Unity.VRTemplate
         [SerializeField]
         [Tooltip("Angle increments to support, if greater than '0'")]
         float m_AngleIncrement = 0.0f;
+
+        [SerializeField]
+        [Tooltip("The axis to rotate around.")]
+        KnobAxis m_RotationAxis = KnobAxis.Y;
 
         [SerializeField]
         [Tooltip("Events to trigger when the knob is rotated")]
@@ -85,6 +96,12 @@ namespace Unity.VRTemplate
             }
         }
 
+        public KnobAxis rotationAxis
+        {
+            get => m_RotationAxis;
+            set => m_RotationAxis = value;
+        }
+
         void Start()
         {
             SetKnobRotation(m_Value);
@@ -133,7 +150,22 @@ namespace Unity.VRTemplate
         void UpdateRotation()
         {
             var interactorTransform = m_Interactor.GetAttachTransform(this);
-            var knobRotation = transform.InverseTransformDirection(interactorTransform.forward).y * 180.0f;
+            float knobRotation = 0.0f;
+            switch (m_RotationAxis)
+            {
+                case KnobAxis.X:
+                    knobRotation = transform.InverseTransformDirection(interactorTransform.forward).x * 180.0f;
+                    break;
+                case KnobAxis.Y:
+                    knobRotation = transform.InverseTransformDirection(interactorTransform.forward).y * 180.0f;
+                    break;
+                case KnobAxis.Z:
+                    knobRotation = transform.InverseTransformDirection(interactorTransform.forward).z * 180.0f;
+                    break;
+                default:
+                    knobRotation = 0.0f;
+                    break;
+            }
             jointAngle = knobRotation;
         }
 
@@ -144,15 +176,45 @@ namespace Unity.VRTemplate
                 angle = Mathf.Round(angle / m_AngleIncrement) * m_AngleIncrement;
             }
 
-            if (m_Handle != null)
-                m_Handle.localEulerAngles = new Vector3(0.0f, angle, 0.0f);
+            if (m_Handle != null) 
+            {
+                switch (m_RotationAxis)
+                {
+                    case KnobAxis.X:
+                        m_Handle.localEulerAngles = new Vector3(angle, 0.0f, 0.0f);
+                        break;
+                    case KnobAxis.Y:
+                        m_Handle.localEulerAngles = new Vector3(0.0f, angle, 0.0f);
+                        break;
+                    case KnobAxis.Z:
+                        m_Handle.localEulerAngles = new Vector3(0.0f, 0.0f, angle);
+                        break;
+                    default:
+                        m_Handle.localEulerAngles = new Vector3(0.0f, angle, 0.0f);
+                        break;
+                }
+            }
         }
 
         void UpdateRobotJointAngle(float angle)
         {
             if (m_RobotJoint != null)
             {
-                m_RobotJoint.localEulerAngles = new Vector3(0.0f, angle, 0.0f); // Assuming rotation around Y-axis
+                switch (m_RotationAxis)
+                {
+                    case KnobAxis.X:
+                        m_RobotJoint.localEulerAngles = new Vector3(angle, 0.0f, 0.0f); // Assuming rotation around X-axis
+                        break;
+                    case KnobAxis.Y:
+                        m_RobotJoint.localEulerAngles = new Vector3(0.0f, angle, 0.0f); // Assuming rotation around Y-axis
+                        break;
+                    case KnobAxis.Z:
+                        m_RobotJoint.localEulerAngles = new Vector3(0.0f, 0.0f, angle); // Assuming rotation around Z-axis
+                        break;
+                    default:
+                        m_RobotJoint.localEulerAngles = new Vector3(0.0f, angle, 0.0f); // Assuming rotation around Y-axis
+                        break;
+                }
                 m_OnValueChange.Invoke(angle);
             }
         }

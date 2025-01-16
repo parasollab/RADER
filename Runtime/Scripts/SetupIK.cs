@@ -77,7 +77,22 @@ public class SetupIK : MonoBehaviour
         {
             for (int j = 0; j < angles.Length; j++)
             {
-                float oldAngle = ikJoints[j].transform.localEulerAngles.y;
+                float oldAngle;
+                switch (xrKnobs[j].rotationAxis)
+                {
+                    case KnobAxis.X:
+                        oldAngle = ikJoints[j].transform.localEulerAngles.x;
+                        break;
+                    case KnobAxis.Y:
+                        oldAngle = ikJoints[j].transform.localEulerAngles.y;
+                        break;
+                    case KnobAxis.Z:
+                        oldAngle = ikJoints[j].transform.localEulerAngles.z;
+                        break;
+                    default:
+                        oldAngle = ikJoints[j].transform.localEulerAngles.y;
+                        break;
+                }
                 float diff = AngleDifference(oldAngle, angles[j]);
 
                 // Subtract the difference from the knob angle
@@ -88,11 +103,26 @@ public class SetupIK : MonoBehaviour
         }
     }
 
-    public void SetJointAngle(int jointIndex, float jointAngle)
+    public void SetJointAngle(int jointIndex, float jointAngle, bool useZ=false)
     {
         if (xrKnobs != null && xrKnobs.Count == ikJoints.Count)
         {
-            float oldAngle = ikJoints[jointIndex].transform.localEulerAngles.y;
+            float oldAngle;
+            switch (xrKnobs[jointIndex].rotationAxis)
+            {
+                case KnobAxis.X:
+                    oldAngle = ikJoints[jointIndex].transform.localEulerAngles.x;
+                    break;
+                case KnobAxis.Y:
+                    oldAngle = ikJoints[jointIndex].transform.localEulerAngles.y;
+                    break;
+                case KnobAxis.Z:
+                    oldAngle = ikJoints[jointIndex].transform.localEulerAngles.z;
+                    break;
+                default:
+                    oldAngle = ikJoints[jointIndex].transform.localEulerAngles.y;
+                    break;
+            }
             float diff = AngleDifference(oldAngle, jointAngle);
 
             // Subtract the difference from the knob angle
