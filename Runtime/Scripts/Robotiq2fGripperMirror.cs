@@ -8,7 +8,9 @@ public class Robotiq2fGripperMirror : MonoBehaviour
     public GameObject leftRobot;
     public GameObject rightRobot;
     public string leftMasterJoint = "finger_joint";
+    public string leftMasterJointUnityName = "left_outer_knuckle";
     public string rightMasterJoint = "finger_joint";
+    public string rightMasterJointUnityName = "left_outer_knuckle";
     public float maxFingerDist = 0.11f;
     public float maxJointAngle = 45.0f;
 
@@ -84,7 +86,8 @@ public class Robotiq2fGripperMirror : MonoBehaviour
 
                     // Set the gripper's joint angle based on the distance between the thumb and the index finger
                     float jointAngle = Map(distance, 0.0f, maxFingerDist, 0.0f, maxJointAngle, true);
-                    leftRobotManager.SetGripperByJointName(leftMasterJoint, jointAngle);
+                    leftRobotManager.SetGripperByJointName(leftMasterJoint, jointAngle, true);
+                    leftRobotManager.SetGripperByJointName(leftMasterJointUnityName, jointAngle, false);
                 }
 
                 // Repeat the same process for the right hand
@@ -116,7 +119,8 @@ public class Robotiq2fGripperMirror : MonoBehaviour
 
                     // Set the gripper's joint angle based on the distance between the thumb and the index finger
                     float jointAngle = Map(distance, 0.0f, maxFingerDist, 0.0f, maxJointAngle, true);
-                    rightRobotManager.SetGripperByJointName(rightMasterJoint, jointAngle);
+                    rightRobotManager.SetGripperByJointName(rightMasterJoint, jointAngle, true);
+                    rightRobotManager.SetGripperByJointName(rightMasterJointUnityName, jointAngle, false);
                 }
                 break;
         }

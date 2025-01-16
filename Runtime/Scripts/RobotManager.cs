@@ -37,14 +37,6 @@ public class RobotManager : MonoBehaviour
         float[] currentAngles = GetJointAngles();
         float[] jointAngles = ikSolver.InverseKinematics(target, currentAngles);
         SetJointAngles(jointAngles);
-
-        // Print the joint angles
-        string jointAnglesString = "";
-        foreach (float angle in jointAngles)
-        {
-            jointAnglesString += angle + ", ";
-        }
-        UnityEngine.Debug.Log(jointAnglesString);
     }
 
     public Transform GetEEPose()
@@ -92,9 +84,9 @@ public class RobotManager : MonoBehaviour
         processUrdf.ResetHomePosition();
     }
 
-    public void SetGripperByJointName(string jointName, float jointAngle)
+    public void SetGripperByJointName(string jointName, float jointAngle, bool ignoreNotFound=true)
     {
-        gripper.GetComponent<SetupIK>().SetJointAngle(jointName, jointAngle);
+        gripper.GetComponent<SetupIK>().SetJointAngle(jointName, jointAngle, ignoreNotFound);
     }
 
     private void AddGripper(GameObject gripper, GameObject lastLink)

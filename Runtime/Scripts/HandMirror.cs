@@ -89,8 +89,6 @@ public class HandMirror : MonoBehaviour
                     {
                         // Set the target end effector pose for the left robot
                         leftRobotManager.SetTargetEEPose(leftEEIndicator.transform);
-
-                        Debug.Log("Setting target end effector pose to: " + leftEEIndicator.transform.position);
                     }
                 }
                 else
