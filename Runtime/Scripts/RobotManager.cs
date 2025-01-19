@@ -36,6 +36,11 @@ public class RobotManager : MonoBehaviour
     {
         float[] currentAngles = GetJointAngles();
         float[] jointAngles = ikSolver.InverseKinematics(target, currentAngles);
+        if (jointAngles == null)
+        {
+            return;
+        }
+        
         SetJointAngles(jointAngles);
     }
 

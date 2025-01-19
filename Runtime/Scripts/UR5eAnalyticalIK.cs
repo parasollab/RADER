@@ -4,29 +4,6 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
 
-// READ BEFORE WORKING ON THIS FILE:
-// This file contains the analytical inverse kinematics solver for the UR5e robot.
-// The solver is adapted from the ur_kinematics package in the ROS Industrial repository.
-// The original code is written in C++ and can be found at:
-// https://github.com/ros-industrial/universal_robot/tree/noetic-devel/ur_kinematics
-// (we should include the license info from the original code when we finalize the implementation)
-
-// The current version does not work as expected and needs to be fixed.
-// Here are the issues:
-// 1) Unity uses left-handed coordinate system, while the UR5e uses a right-handed coordinate system.
-//   This means that the axes of the robot are different from the axes of Unity.
-//   The solver needs to take this into account and convert the target position and orientation from Unity to the robot's coordinate system.
-//   This file includes a forward kinematics function that also suffers from this issue (for use in testing the solver).
-// 2) The solver does not handle the case when there is no solution for the given target pose.
-//   In this case, the solver should find the closest reachable point to the target pose.
-// 3) The base of the robot could be in a different position from the origin of the world in Unity.
-//   The solver should take this into account and make the target pose relative to the robot's base.
-// 4) The solver should return the joint angles in degrees, as Unity uses degrees for angles.
-//   This might be already implemented, but it needs to be verified that eveything is in the units expected by respective components.
-// 5) It is unclear whether this matches the desired end effector orientation.
-//   If it doesn't, we should choose the solution that gets closest to the desired orientation.
-//   Additionally, we might want to look into using IKFast to generate a more accurate solver.
-
 public class UR5eAnalyticalIK : IKSolver
 {
 
@@ -80,7 +57,7 @@ public class UR5eAnalyticalIK : IKSolver
         }
     }
 
-    // forward 
+    // TODO I think this is not needed (we know the tooltip location)
     public static float[] Forward(float[] jointConfig)
     {
         if (_instance == IntPtr.Zero)
@@ -102,53 +79,25 @@ public class UR5eAnalyticalIK : IKSolver
         return result;
     }
 
-    private Matrix4x4 Unity2RosHT, Ros2UnityHT;
-
-    void Start() {
-        Unity2RosHT = Matrix4x4.zero;
-        Unity2RosHT[0, 0] = -1.0f;
-        Unity2RosHT[1, 2] = -1.0f;
-        Unity2RosHT[2, 1] =  1.0f;        
-
-        Ros2UnityHT = Matrix4x4.zero;
-        Ros2UnityHT[0, 0] = -1.0f;
-        Ros2UnityHT[1, 2] =  1.0f;
-        Ros2UnityHT[2, 1] = -1.0f;  
-    }
-
     public override float[] InverseKinematics(Transform target, float[] initialAngles)
     {
-        Matrix4x4 unityHT, rosHT;
+        // Convert the Unity coordinates to the UR5e coordinates (left-handed to right-handed)
         Quaternion corrected_ori;
-
-        // Performs a 90° rotation around X so that the EE faces the forward axis
-        Vector3 pos = target.position;
         Quaternion ori = target.rotation;
-        corrected_ori = new Quaternion(ori.x, ori.z, -ori.y, ori.w) * Quaternion.Euler(90.0f, 0, 0) ;
-        unityHT = Matrix4x4.TRS(pos, corrected_ori, Vector3.one);
-        rosHT = Unity2RosHT * unityHT;
+        corrected_ori = new Quaternion(ori.x, ori.z, ori.y, ori.w) * Quaternion.Euler(0, 0, 0); // TODO check if this final rotation is correct (check gripper rotation relative to EE)
 
-        // float[] eePose = new float[7]; // 3 pos + 4 quat
-        // eePose[0] = rosHT[0, 3];
-        // eePose[1] = rosHT[1, 3];
-        // eePose[2] = rosHT[2, 3];
+        Vector3 corrected_pos = new Vector3(target.position.x, target.position.z, target.position.y);
+        Vector3 rotated_pos = new Vector3(corrected_pos.y, -corrected_pos.x, corrected_pos.z);
 
-        // // Get the quaternion from the matrix
-        // double qw = Math.Sqrt(1.0 + rosHT[0, 0] + rosHT[1, 1] + rosHT[2, 2]) / 2.0;
-        // double qx = (rosHT[2, 1] - rosHT[1, 2]) / (4.0 * qw);
-        // double qy = (rosHT[0, 2] - rosHT[2, 0]) / (4.0 * qw);
-        // double qz = (rosHT[1, 0] - rosHT[0, 1]) / (4.0 * qw);
+        float[] eePose = new float[7]; // 3 pos + 4 quat
+        eePose[0] = rotated_pos.x;
+        eePose[1] = rotated_pos.y;
+        eePose[2] = rotated_pos.z;
 
-        // eePose[3] = (float)qw;
-        // eePose[4] = (float)qx;
-        // eePose[5] = (float)qy;
-        // eePose[6] = (float)qz;
-
-        float[] eePose = new float[] {-0.47659859f, -0.15102799f, 0.49082398f, -0.0206427f, 0.6922559f, 0.7213566f, -0.0004294f};
-
-        // Print the target matrix for debugging
-        // Debug.Log("Target position: " + pos);
-        // Debug.Log("Target quaternion: " + qw + ", " + qx + ", " + qy + ", " + qz);
+        eePose[3] = corrected_ori.w;
+        eePose[4] = corrected_ori.x;
+        eePose[5] = corrected_ori.y;
+        eePose[6] = corrected_ori.z;
 
         // Call the inverse kinematics function
         float[] result = Inverse(eePose);
@@ -165,12 +114,39 @@ public class UR5eAnalyticalIK : IKSolver
             Debug.Log("Solution " + i/6 + ": " + strJointAngles);
         }
 
-        // Return the first result for now
+        // Find the non-zero solution closest to the initial angles
+        float minDist = float.MaxValue;
+        int minIndex = -1;
+        for (int i = 0; i < result.Length; i += 6)
+        {
+            float dist = 0;
+            bool valid = false;
+            for (int j = 0; j < 6; j++)
+            {
+                valid = valid || result[i + j] != 0;
+                dist += Mathf.Abs(result[i + j] - initialAngles[j]);
+            }
+            if (dist < minDist && valid)
+            {
+                minDist = dist;
+                minIndex = i;
+            }
+        }
+
+        if (minIndex == -1)
+        {
+            Debug.LogError("No valid solution found");
+            return null;
+        }
+
+        // Return the joint angles of the closest solution
         float[] jointAngles = new float[6];
         for (int i = 0; i < 6; i++)
         {
-            jointAngles[i] = result[i];
+            jointAngles[i] = -1.0f * result[minIndex + i] * Mathf.Rad2Deg;
         }
+
+        Debug.Log("Joint angles: " + jointAngles[0] + ", " + jointAngles[1] + ", " + jointAngles[2] + ", " + jointAngles[3] + ", " + jointAngles[4] + ", " + jointAngles[5]);
 
         return jointAngles;
     }
