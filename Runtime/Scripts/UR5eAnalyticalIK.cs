@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using UnityEngine;
 
 // READ BEFORE WORKING ON THIS FILE:
@@ -28,413 +29,154 @@ using UnityEngine;
 
 public class UR5eAnalyticalIK : IKSolver
 {
-    private float d1 = 0.1625f;
-    private float a2 = -0.425f;
-    private float a3 = -0.3922f;
-    private float d4 =  0.1333f;
-    private float d5 =  0.0997f;
-    private float d6 =  0.0996f;
-    private float ZERO_THRESH = 0.00000001f;
+
+    // 1) We define an opaque pointer type.
+    //    We'll store it in an IntPtr in C#.
+    private struct KinematicsWrapperPtr { }
+
+    // 2) DllImport the creation/destruction
+    [DllImport("ur5e_ikfast")]
+    private static extern IntPtr create_kinematics();
+
+    [DllImport("ur5e_ikfast")]
+    private static extern void destroy_kinematics(IntPtr kin);
+
+    // 3) forward_kinematics
+    [DllImport("ur5e_ikfast")]
+    private static extern void forward_kinematics(
+        IntPtr kin,
+        float[] joint_config, 
+        int joint_config_length,
+        float[] out_array, 
+        int out_array_length
+    );
+
+    // 4) inverse_kinematics
+    [DllImport("ur5e_ikfast")]
+    private static extern void inverse_kinematics(
+        IntPtr kin,
+        float[] ee_pose,
+        int ee_pose_length,
+        float[] out_array,
+        int out_array_length
+    );
+
+    private static IntPtr _instance = IntPtr.Zero;
+
+    public static void Init()
+    {
+        if (_instance == IntPtr.Zero)
+        {
+            _instance = create_kinematics();
+        }
+    }
+
+    public static void Cleanup()
+    {
+        if (_instance != IntPtr.Zero)
+        {
+            destroy_kinematics(_instance);
+            _instance = IntPtr.Zero;
+        }
+    }
+
+    // forward 
+    public static float[] Forward(float[] jointConfig)
+    {
+        if (_instance == IntPtr.Zero)
+            Init();
+
+        float[] result = new float[16]; // 4x4 matrix
+        forward_kinematics(_instance, jointConfig, jointConfig.Length, result, result.Length);
+        return result;
+    }
+
+    // inverse 
+    public static float[] Inverse(float[] eePose)
+    {
+        if (_instance == IntPtr.Zero)
+            Init();
+
+        float[] result = new float[8*6]; // max 8 solutions, 6 joints
+        inverse_kinematics(_instance, eePose, eePose.Length, result, result.Length);
+        return result;
+    }
+
+    private Matrix4x4 Unity2RosHT, Ros2UnityHT;
+
+    void Start() {
+        Unity2RosHT = Matrix4x4.zero;
+        Unity2RosHT[0, 0] = -1.0f;
+        Unity2RosHT[1, 2] = -1.0f;
+        Unity2RosHT[2, 1] =  1.0f;        
+
+        Ros2UnityHT = Matrix4x4.zero;
+        Ros2UnityHT[0, 0] = -1.0f;
+        Ros2UnityHT[1, 2] =  1.0f;
+        Ros2UnityHT[2, 1] = -1.0f;  
+    }
 
     public override float[] InverseKinematics(Transform target, float[] initialAngles)
     {
-        // Print target position
-        Debug.Log("Target position: " + target.position);
+        Matrix4x4 unityHT, rosHT;
+        Quaternion corrected_ori;
 
-        // Run forward kinematics to get the initial pose and print the result
-        Matrix4x4 mInitial = Forward(initialAngles);
-        string sInitial = "Initial pose: ";
-        for(int i = 0; i < 4; i++)
+        // Performs a 90° rotation around X so that the EE faces the forward axis
+        Vector3 pos = target.position;
+        Quaternion ori = target.rotation;
+        corrected_ori = new Quaternion(ori.x, ori.z, -ori.y, ori.w) * Quaternion.Euler(90.0f, 0, 0) ;
+        unityHT = Matrix4x4.TRS(pos, corrected_ori, Vector3.one);
+        rosHT = Unity2RosHT * unityHT;
+
+        // float[] eePose = new float[7]; // 3 pos + 4 quat
+        // eePose[0] = rosHT[0, 3];
+        // eePose[1] = rosHT[1, 3];
+        // eePose[2] = rosHT[2, 3];
+
+        // // Get the quaternion from the matrix
+        // double qw = Math.Sqrt(1.0 + rosHT[0, 0] + rosHT[1, 1] + rosHT[2, 2]) / 2.0;
+        // double qx = (rosHT[2, 1] - rosHT[1, 2]) / (4.0 * qw);
+        // double qy = (rosHT[0, 2] - rosHT[2, 0]) / (4.0 * qw);
+        // double qz = (rosHT[1, 0] - rosHT[0, 1]) / (4.0 * qw);
+
+        // eePose[3] = (float)qw;
+        // eePose[4] = (float)qx;
+        // eePose[5] = (float)qy;
+        // eePose[6] = (float)qz;
+
+        float[] eePose = new float[] {-0.47659859f, -0.15102799f, 0.49082398f, -0.0206427f, 0.6922559f, 0.7213566f, -0.0004294f};
+
+        // Print the target matrix for debugging
+        // Debug.Log("Target position: " + pos);
+        // Debug.Log("Target quaternion: " + qw + ", " + qx + ", " + qy + ", " + qz);
+
+        // Call the inverse kinematics function
+        float[] result = Inverse(eePose);
+
+        // Print the result for debugging
+        Debug.Log("Inverse kinematics result: ");
+        for (int i = 0; i < result.Length; i += 6)
         {
-            for(int j = 0; j < 4; j++)
+            string strJointAngles = "";
+            for (int j = 0; j < 6; j++)
             {
-                sInitial += mInitial[i,j] + " ";
+                strJointAngles += result[i + j] + ", ";
             }
+            Debug.Log("Solution " + i/6 + ": " + strJointAngles);
         }
-        Debug.Log(sInitial);
 
-        // 1) Get Unity transform and 2) Convert from Unity coords to Robot coords
-        // Swap the axes to -z, x, y (?)
-        // Vector3 targetPos = new Vector3(-target.position.z, target.position.x, target.position.y);
-        // Quaternion targetRot = new Quaternion(-target.rotation.z, target.rotation.x, target.rotation.y, target.rotation.w);
-        Vector3 targetPos = target.position;
-        Quaternion targetRot = target.rotation;
-
-        Matrix4x4 mRobot = Matrix4x4.TRS(targetPos, targetRot, Vector3.one);
-
-        // 3) Build T[] from mRobot in row-major order
-        double[] T = new double[16];
-        T[0]  = mRobot[0,0]; T[1]  = mRobot[0,1]; T[2]  = mRobot[0,2]; T[3]  = mRobot[0,3];
-        T[4]  = mRobot[1,0]; T[5]  = mRobot[1,1]; T[6]  = mRobot[1,2]; T[7]  = mRobot[1,3];
-        T[8]  = mRobot[2,0]; T[9]  = mRobot[2,1]; T[10] = mRobot[2,2]; T[11] = mRobot[2,3];
-        T[12] = mRobot[3,0]; T[13] = mRobot[3,1]; T[14] = mRobot[3,2]; T[15] = mRobot[3,3];
-
-        // Print T
-        string sT = "T: ";
-        for(int i = 0; i < 16; i++)
+        // Return the first result for now
+        float[] jointAngles = new float[6];
+        for (int i = 0; i < 6; i++)
         {
-            sT += T[i] + " ";
-        }
-        Debug.Log(sT);
-
-        // 4) Call the inverse solver
-        double[] qSols = new double[6*8];  // up to 8 solutions
-        int nSols = Inverse(T, qSols, 0.0);
-
-        // 5) Pick solution closest to 'initialAngles'
-        if(nSols == 0)
-        {
-            Debug.LogWarning("No IK solutions found for this pose!");
-            return null;
+            jointAngles[i] = result[i];
         }
 
-        Debug.Log("Found " + nSols + " IK solutions");
-
-        // Print all of the solutions
-        for(int i = 0; i < nSols; i++)
-        {
-            string s = "Solution " + i + ": ";
-            for(int j = 0; j < 6; j++)
-            {
-                s += qSols[i*6 + j] + " ";
-            }
-            Debug.Log(s);
-        }
-
-        float[] bestSolution = new float[6];
-        double bestDist = double.MaxValue;
-        int bestIdx = -1;
-
-        for(int i = 0; i < nSols; i++)
-        {
-            double sumSq = 0.0;
-            for(int j = 0; j < 6; j++)
-            {
-                double diff = qSols[i*6 + j] - initialAngles[j] * Math.PI / 180.0;
-                sumSq += diff*diff;
-            }
-            if(sumSq < bestDist)
-            {
-                bestDist = sumSq;
-                bestIdx = i;
-            }
-        }
-
-        // For each solution, convert to degrees and then print the forward kinematics result using those angles
-        for(int i = 0; i < nSols; i++)
-        {
-            for(int j = 0; j < 6; j++)
-            {
-                qSols[i*6 + j] = qSols[i*6 + j] * 180.0 / Math.PI;
-            }
-
-            Matrix4x4 m = Forward(new float[] { (float)qSols[i*6 + 0], (float)qSols[i*6 + 1], (float)qSols[i*6 + 2], (float)qSols[i*6 + 3], (float)qSols[i*6 + 4], (float)qSols[i*6 + 5] });
-            string s = "Forward kinematics for solution " + i + ": ";
-            for(int k = 0; k < 4; k++)
-            {
-                for(int j = 0; j < 4; j++)
-                {
-                    s += m[k,j] + " ";
-                }
-            }
-            Debug.Log(s);
-        }
-
-        bestIdx = 0;  // For now, just use the first solution
-        for(int j = 0; j < 6; j++)
-        {
-            bestSolution[j] = (float)qSols[bestIdx*6 + j] * 180.0f / (float)Math.PI;
-        }
-
-        // Print the best solution
-        string best = "Best solution: ";
-        for(int j = 0; j < 6; j++)
-        {
-            best += bestSolution[j] + " ";
-        }
-        Debug.Log(best);
-
-        // Run forward kinematics to get the final pose and print the result
-        Matrix4x4 mFinal = Forward(bestSolution);
-        string sFinal = "Final pose: ";
-        for(int i = 0; i < 4; i++)
-        {
-            for(int j = 0; j < 4; j++)
-            {
-                sFinal += mFinal[i,j] + " ";
-            }
-        }
-        Debug.Log(sFinal);
-
-        return bestSolution;
+        return jointAngles;
     }
 
-    private int Inverse(double[] T, double[] qSols, double q6_des = 0.0)
+    void OnDestroy()
     {
-        int num_sols = 0;
-
-        double T02 = -T[0];
-        double T00 =  T[1];
-        double T01 =  T[2];
-        double T03 = -T[3];
-
-        double T12 = -T[4];
-        double T10 =  T[5];
-        double T11 =  T[6];
-        double T13 = -T[7];
-
-        double T22 =  T[8];
-        double T20 = -T[9];
-        double T21 = -T[10];
-        double T23 =  T[11];
-
-        ////////////////////////////// shoulder rotate joint (q1) //////////////////////////////
-        double[] q1 = new double[2];
-        {
-            double A = d6 * T12 - T13;
-            double B = d6 * T02 - T03;
-            double R = A*A + B*B;
-
-            if(Math.Abs(A) < ZERO_THRESH)
-            {
-                // handle arcsin
-                double div;
-                if(Math.Abs(Math.Abs(d4) - Math.Abs(B)) < ZERO_THRESH)
-                    div = -SIGN(d4) * SIGN(B);
-                else
-                    div = -d4/B;
-
-                double val = Math.Asin(div);
-                if(Math.Abs(val) < ZERO_THRESH) val = 0.0;
-                if(val < 0.0) q1[0] = val + 2.0*Math.PI; 
-                else          q1[0] = val;
-                q1[1] = Math.PI - val;
-            }
-            else if(Math.Abs(B) < ZERO_THRESH)
-            {
-                // handle arccos
-                double div;
-                if(Math.Abs(Math.Abs(d4) - Math.Abs(A)) < ZERO_THRESH)
-                    div = SIGN(d4) * SIGN(A);
-                else
-                    div = d4/A;
-
-                double val = Math.Acos(div);
-                q1[0] = val;
-                q1[1] = 2.0*Math.PI - val;
-            }
-            else if(d4*d4 > R)
-            {
-                // No solution
-                return 0;
-            }
-            else
-            {
-                double val = d4 / Math.Sqrt(R);
-                double arccos = Math.Acos(val);
-                double arctan = Math.Atan2(-B, A);
-
-                double pos = arccos + arctan;
-                double neg = -arccos + arctan;
-                if(Math.Abs(pos) < ZERO_THRESH) pos = 0.0;
-                if(Math.Abs(neg) < ZERO_THRESH) neg = 0.0;
-
-                q1[0] = (pos >= 0.0) ? pos : 2.0*Math.PI + pos;
-                q1[1] = (neg >= 0.0) ? neg : 2.0*Math.PI + neg;
-            }
-        }
-
-        ////////////////////////////// wrist 2 joint (q5) //////////////////////////////
-        // q5[i][j] for i in [0..1], j in [0..1]
-        double[][] q5 = new double[2][] { new double[2], new double[2] };
-
-        {
-            for(int i=0; i<2; i++)
-            {
-                double numer = T03 * Math.Sin(q1[i]) - T13 * Math.Cos(q1[i]) - d4;
-                double div;
-                if(Math.Abs(Math.Abs(numer) - Math.Abs(d6)) < ZERO_THRESH)
-                    div = SIGN(numer) * SIGN(d6);
-                else
-                    div = numer / d6;
-
-                double val = Math.Acos(div);
-                q5[i][0] = val;
-                q5[i][1] = 2.0*Math.PI - val;
-            }
-        }
-
-        {
-            // big loop over possible i, j
-            for(int i = 0; i < 2; i++)
-            {
-                for(int j = 0; j < 2; j++)
-                {
-                    double c1 = Math.Cos(q1[i]);
-                    double s1 = Math.Sin(q1[i]);
-                    double c5 = Math.Cos(q5[i][j]);
-                    double s5 = Math.Sin(q5[i][j]);
-
-                    ////////////////////////////// wrist 3 joint (q6) //////////////////////////////
-                    double q6;
-                    if(Math.Abs(s5) < ZERO_THRESH)
-                    {
-                        q6 = q6_des;
-                    }
-                    else
-                    {
-                        // SIGN(s5)*-(T01*s1 - T11*c1) => same as -SIGN(s5)*(T01*s1 - T11*c1)
-                        double y = -SIGN(s5)*(T01*s1 - T11*c1);
-                        double x =  SIGN(s5)*(T00*s1 - T10*c1);
-                        q6 = Math.Atan2(y, x);
-
-                        if(Math.Abs(q6) < ZERO_THRESH) q6 = 0.0;
-                        if(q6 < 0.0) q6 += 2.0*Math.PI;
-                    }
-
-                    // Now solve for q2, q3, q4
-                    double c6 = Math.Cos(q6);
-                    double s6 = Math.Sin(q6);
-
-                    double x04x = -s5*(T02*c1 + T12*s1)
-                                - c5*( s6*(T01*c1 + T11*s1) - c6*(T00*c1 + T10*s1) );
-
-                    double x04y = c5*(T20*c6 - T21*s6) - T22*s5;
-
-                    double p13x = d5*( s6*(T00*c1 + T10*s1) 
-                                    + c6*(T01*c1 + T11*s1) )
-                                - d6*(T02*c1 + T12*s1)
-                                + T03*c1 + T13*s1;
-
-                    double p13y = T23 - d1 - d6*T22
-                                + d5*(T21*c6 + T20*s6);
-
-                    // solve for q2, q3
-                    double c3 = (p13x*p13x + p13y*p13y - a2*a2 - a3*a3)/(2.0*a2*a3);
-                    // clamp if out of range
-                    if(Math.Abs(Math.Abs(c3) - 1.0) < ZERO_THRESH) 
-                    {
-                        c3 = SIGN(c3); 
-                    } 
-                    else if(Math.Abs(c3) > 1.0)
-                    {
-                        // no solution
-                        continue;
-                    }
-
-                    double arccos_c3 = Math.Acos(c3);
-                    double[] q3vals = new double[2] { arccos_c3, 2.0*Math.PI - arccos_c3 };
-
-                    /// here
-                    /// 
-
-                    double denom = a2*a2 + a3*a3 + 2*a2*a3*c3;
-                    double s3 = Math.Sin(arccos_c3);
-                    double A = a2 + a3*c3;
-                    double B = a3*s3;
-
-                    double q2val = Math.Atan2( (A*p13y - B*p13x)/denom,
-                                            (A*p13x + B*p13y)/denom );
-
-                    double q2alt = Math.Atan2( (A*p13y + B*p13x)/denom,
-                                            (A*p13x - B*p13y)/denom );
-                    
-                    double[] q2vals = new double[2] { q2val, q2alt };
-
-                    // compute q4 from q2+q3
-                    double c23_0 = Math.Cos(q2vals[0] + q3vals[0]);
-                    double s23_0 = Math.Sin(q2vals[0] + q3vals[0]);
-                    double c23_1 = Math.Cos(q2vals[1] + q3vals[1]);
-                    double s23_1 = Math.Sin(q2vals[1] + q3vals[1]);
-
-                    double q4_0 = Math.Atan2(c23_0*x04y - s23_0*x04x,
-                                            x04x*c23_0 + x04y*s23_0);
-                    
-                    double q4_1 = Math.Atan2(c23_1*x04y - s23_1*x04x,
-                                            x04x*c23_1 + x04y*s23_1);
-
-                    double[] q4vals = new double[2] { q4_0, q4_1 };
-                    
-                    for (int k = 0; k < 2; k++)
-                    {
-                        if (Math.Abs(q2vals[k]) < ZERO_THRESH) q2vals[k] = 0.0;
-                        else if (q2vals[k] < 0.0) q2vals[k] += 2.0*Math.PI;
-
-                        if (Math.Abs(q4vals[k]) < ZERO_THRESH) q4vals[k] = 0.0;
-                        else if (q4vals[k] < 0.0) q4vals[k] += 2.0*Math.PI;
-
-                        // store solution in q_sols
-                        qSols[num_sols*6 + 0] = q1[i];
-                        qSols[num_sols*6 + 1] = q2vals[k];
-                        qSols[num_sols*6 + 2] = q3vals[k];
-                        qSols[num_sols*6 + 3] = q4vals[k];
-                        qSols[num_sols*6 + 4] = q5[i][j];
-                        qSols[num_sols*6 + 5] = q6;
-
-                        num_sols++;
-                    }
-                }
-            }
-        }
-
-        return num_sols;
-    }
-
-    private Matrix4x4 Forward(float[] jointAngles)
-    {
-        double s1 = Math.Sin(jointAngles[0] * Math.PI / 180.0);
-        double c1 = Math.Cos(jointAngles[0] * Math.PI / 180.0);
-
-        double q23 = jointAngles[1];
-        double q234 = jointAngles[1];
-        double s2 = Math.Sin(jointAngles[1] * Math.PI / 180.0);
-        double c2 = Math.Cos(jointAngles[1] * Math.PI / 180.0);
-
-        double s3 = Math.Sin(jointAngles[2] * Math.PI / 180.0);
-        double c3 = Math.Cos(jointAngles[2] * Math.PI / 180.0);
-        q23 += jointAngles[2];
-        q234 += jointAngles[2];
-
-        double s4 = Math.Sin(jointAngles[3] * Math.PI / 180.0);
-        double c4 = Math.Cos(jointAngles[3] * Math.PI / 180.0);
-        q234 += jointAngles[3];
-
-        double s5 = Math.Sin(jointAngles[4] * Math.PI / 180.0);
-        double c5 = Math.Cos(jointAngles[4] * Math.PI / 180.0);
-
-        double s6 = Math.Sin(jointAngles[5] * Math.PI / 180.0);
-        double c6 = Math.Cos(jointAngles[5] * Math.PI / 180.0);
-
-        double s23 = Math.Sin(q23);
-        double c23 = Math.Cos(q23);
-
-        double s234 = Math.Sin(q234);
-        double c234 = Math.Cos(q234);
-
-        Matrix4x4 T = new Matrix4x4();
-        T[0,0] = (float)(c234*c1*s5 - c5*s1);
-        T[0,1] = (float)(c6*(s1*s5 + c234*c1*c5) - s234*c1*s6);
-        T[0,2] = (float)(-s6*(s1*s5 + c234*c1*c5) - s234*c1*c6);
-        T[0,3] = (float)(d6*c234*c1*s5 - a3*c23*c1 - a2*c1*c2 - d6*c5*s1 - d5*s234*c1 - d4*s1);
-        T[1,0] = (float)(c1*c5 + c234*s1*s5);
-        T[1,1] = (float)(-c6*(c1*s5 - c234*c5*s1) - s234*s1*s6);
-        T[1,2] = (float)(s6*(c1*s5 - c234*c5*s1) - s234*c6*s1);
-        T[1,3] = (float)(d6*(c1*c5 + c234*s1*s5) + d4*c1 - a3*c23*s1 - a2*c2*s1 - d5*s234*s1);
-        T[2,0] = (float)(-s234*s5);
-        T[2,1] = (float)(-c234*s6 - s234*c5*c6);
-        T[2,2] = (float)(s234*c5*s6 - c234*c6);
-        T[2,3] = (float)(d1 + a3*s23 + a2*s2 - d5*(c23*c4 - s23*s4) - d6*s5*(c23*s4 + s23*c4));
-        T[3,0] = 0.0f;
-        T[3,1] = 0.0f;
-        T[3,2] = 0.0f;
-        T[3,3] = 1.0f;
-
-        return T;
-    }
-
-    private int SIGN(double x) {
-        int gt = (x > 0) ? 1 : 0;
-        int lt = (x < 0) ? 1 : 0;
-        return gt - lt;
+        Cleanup();
     }
 }

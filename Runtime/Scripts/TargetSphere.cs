@@ -60,12 +60,12 @@ public class TargetSphere : MonoBehaviour
             return;
         }
 
-        if (!m_active) {
-            Transform ee = robotManager.GetEEPose();
-            Vector3 targetPos = ee.position;
-            target.transform.position = targetPos;
-        } else {
+        // if (!m_active) {
+        //     Transform ee = robotManager.GetEEPose();
+        //     Vector3 targetPos = ee.position;
+        //     target.transform.position = targetPos;
+        // } else {
             robotManager.SetTargetEEPose(target.transform);
-        }
+        // }
     }
 }
