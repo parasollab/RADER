@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using Unity.VRTemplate;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit.AffordanceSystem.Theme.Primitives;
@@ -35,7 +34,18 @@ public class RobotManager : MonoBehaviour
     public void SetTargetEEPose(Transform target)
     {
         float[] currentAngles = GetJointAngles();
-        float[] jointAngles = ikSolver.InverseKinematics(target, currentAngles);
+
+        // Get the target transform relative to the robot's base
+        Vector3 targetPos = urdfModel.transform.InverseTransformPoint(target.position);
+        Quaternion targetRot = Quaternion.Inverse(urdfModel.transform.rotation) * target.rotation;
+        // Quaternion targetRot = target.rotation;
+
+        // Print the robot's base position and rotation for debugging
+        Debug.Log("Robot base position: " + urdfModel.transform.position);
+        Debug.Log("Robot base rotation: " + urdfModel.transform.rotation);
+
+        // Calculate the joint angles to reach the target
+        float[] jointAngles = ikSolver.InverseKinematics(targetPos, targetRot, currentAngles);
         if (jointAngles == null)
         {
             return;

@@ -79,14 +79,13 @@ public class UR5eAnalyticalIK : IKSolver
         return result;
     }
 
-    public override float[] InverseKinematics(Transform target, float[] initialAngles)
+    public override float[] InverseKinematics(Vector3 pos, Quaternion ori, float[] initialAngles)
     {
         // Convert the Unity coordinates to the UR5e coordinates (left-handed to right-handed)
         Quaternion corrected_ori;
-        Quaternion ori = target.rotation;
         corrected_ori = new Quaternion(ori.x, ori.z, ori.y, ori.w) * Quaternion.Euler(0, 0, 0); // TODO check if this final rotation is correct (check gripper rotation relative to EE)
 
-        Vector3 corrected_pos = new Vector3(target.position.x, target.position.z, target.position.y);
+        Vector3 corrected_pos = new Vector3(pos.x, pos.z, pos.y);
         Vector3 rotated_pos = new Vector3(corrected_pos.y, -corrected_pos.x, corrected_pos.z);
 
         float[] eePose = new float[7]; // 3 pos + 4 quat

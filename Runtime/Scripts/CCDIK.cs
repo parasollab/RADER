@@ -11,17 +11,21 @@ public class CCDIK : IKSolver {
         set => m_active = value;
     }
 
-    public override float[] InverseKinematics(Transform target, float[] initialAngles)
+    // TODO this is deprecated until it can be updated - needs to be cleaned up to work with new blackbox structure
+    // ex. It need to be able to work with position and rotation inputs, not the transform of the target
+    // and it needs to be able to work with the input pos and ori being relative to the robot's base.
+
+    public override float[] InverseKinematics(Vector3 pos, Quaternion ori, float[] initialAngles)
     {
         float[] angles = new float[joints.Length];
 
-        for (int j = 0; j < joints.Length; j++)
-        {
-            joints[j].Evaluate(Tooltip, target, false);
-            float diff = AngleDifference(joints[j].prevAngle, joints[j].transform.localEulerAngles.y);
-            knobs[j].jointAngle = knobs[j].jointAngle - diff;
-            angles[j] = knobs[j].jointAngle;
-        }
+        // for (int j = 0; j < joints.Length; j++)
+        // {
+        //     joints[j].Evaluate(Tooltip, target, false);
+        //     float diff = AngleDifference(joints[j].prevAngle, joints[j].transform.localEulerAngles.y);
+        //     knobs[j].jointAngle = knobs[j].jointAngle - diff;
+        //     angles[j] = knobs[j].jointAngle;
+        // }
 
         return angles;
     }
