@@ -4,9 +4,11 @@ This repository contains the Unity package for the system presented in (TODO cit
 It allows the user to load a robot, specified with a URDF file, into Unity and interact with it to provide trajectory demonstrations by interacting with the robot by directly pushing or dragging joints, using sliders, or moving a target end effector position.
 We intend for this to be used for robotic learning from demonstration, however, you may find it useful for a variety of applications.
 
+**Important Note: version 2 (main branch) is under development. Those wanting to use a stable release version should use version 1.0 (see releases).** To import this from Unity's package manager, use this git URL: `https://github.com/parasollab/RADER.git#v1.0`
+
 ## VERSION 2 - PATCH NOTES (Jan 12, 2025)
 
-RADER has undergone a sizeable refactor. Here are the main affected components:
+RADER is undergoing a sizeable refactor. Here are the main affected components:
 
 1) The introduction of a new script, `RobotManager`. **This script must be attached to each robot GameObject.** It functions as a black box to access robot functionality such as getting and setting joint angles without needing to touch knobs. The intention is to reduce complexity and make adding new scripts that need to access this functionality easier.
 
@@ -22,6 +24,9 @@ RADER has undergone a sizeable refactor. Here are the main affected components:
 
 ## Package Installation
 
+To import RADER into an existing project, use the following instructions. Alternatively, we provide an example project here: [https://github.com/parasollab/VR_Robot](https://github.com/parasollab/VR_Robot).
+
+
 ### Dependencies
 
 Install these dependencies via Unity's Package Manager window:
@@ -29,15 +34,9 @@ Install these dependencies via Unity's Package Manager window:
 ```bash
 https://github.com/Unity-Technologies/ROS-TCP-Connector.git?path=/com.unity.robotics.ros-tcp-connector#v0.7.0
 
-https://github.com/Unity-Technologies/URDF-Importer.git?path=/com.unity.robotics.urdf-importer#v0.5.2
+https://github.com/parasollab/URDF-Importer.git?path=/com.unity.robotics.urdf-importer
 ```
 
-This package can be installed using Unity's Package Manager window. Add the package via git and use this URL: `https://github.com/parasollab/RADER.git`.
+This package can be installed using Unity's Package Manager window. Add the package via git and use this URL: `https://github.com/parasollab/RADER.git#v1.0`.
 
 This package can be used on its own but is maximally useful when used in conjunction with ROS nodes running on an external computer to process the trajectory data collected. Our ROS nodes can be found here: [https://github.com/parasollab/hri_ws](https://github.com/parasollab/hri_ws).
-
-## Usage
-
-We provide an example Unity project that uses this package here: [https://github.com/parasollab/VR_Robot](https://github.com/parasollab/VR_Robot).
-
-The `VR_Robot` repository linked above also has a wiki with documentation describing the usage of this package and the example project.
