@@ -65,7 +65,7 @@ public class CollisionDetector : MonoBehaviour
         float intensity = CalculateIntensity(closestDistance);
         TriggerHaptics(intensity);
 
-        Debug.Log($"Closest Distance: {closestDistance}, Intensity: {intensity}");
+        // Debug.Log($"Closest Distance: {closestDistance}, Intensity: {intensity}");
     }
 
     private float CalculateClosestDistance(GameObject obj)
