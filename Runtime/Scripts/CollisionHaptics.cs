@@ -2,10 +2,11 @@ using System;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
 
-public class CollisionDetector : MonoBehaviour
+public class CollisionHaptics : MonoBehaviour
 {
     [SerializeField] private float maxIntensity = 1.0f;
     [SerializeField] private float scaleFactor = 5.0f; // Determines the sharpness of the exponential increase
+    [SerializeField] private float minDistance = 0.3f; // Minimum distance to trigger haptics
 
     public XRBaseController leftController;
     public XRBaseController rightController;
@@ -61,6 +62,8 @@ public class CollisionDetector : MonoBehaviour
                 closestDistance = distance;
             }
         }
+
+        if (closestDistance > minDistance) return;
 
         float intensity = CalculateIntensity(closestDistance);
         TriggerHaptics(intensity);

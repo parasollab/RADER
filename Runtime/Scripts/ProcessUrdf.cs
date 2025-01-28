@@ -140,8 +140,8 @@ public class ProcessUrdf : MonoBehaviour
             // Do not delete scripts that inherit from IKSolver
             if (script.GetType().IsSubclassOf(typeof(IKSolver))) continue;
 
-            // Do not delete scripts that inherit from CollisionDetector
-            if (script.GetType().Name == "CollisionDetector") continue;
+            // Do not delete CollisionHaptics scripts
+            if (script.GetType().Name == "CollisionHaptics") continue;
 
             DestroyImmediate(script); 
         }
