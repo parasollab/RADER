@@ -81,6 +81,10 @@ public class UR5eAnalyticalIK : IKSolver
 
     public override float[] InverseKinematics(Vector3 pos, Quaternion ori, float[] initialAngles)
     {
+        // Print the input for debugging
+        // Debug.Log("Input pose: " + pos.x + ", " + pos.y + ", " + pos.z + ", " + ori.x + ", " + ori.y + ", " + ori.z + ", " + ori.w);
+        // Debug.Log("Initial angles: " + initialAngles[0] + ", " + initialAngles[1] + ", " + initialAngles[2] + ", " + initialAngles[3] + ", " + initialAngles[4] + ", " + initialAngles[5]);
+
         // Convert the Unity coordinates to the UR5e coordinates (left-handed to right-handed)
         Quaternion corrected_ori;
         corrected_ori = new Quaternion(ori.x, ori.z, ori.y, ori.w) * Quaternion.Euler(0, 0, 0); // TODO check if this final rotation is correct (check gripper rotation relative to EE)
@@ -102,50 +106,68 @@ public class UR5eAnalyticalIK : IKSolver
         float[] result = Inverse(eePose);
 
         // Print the result for debugging
-        Debug.Log("Inverse kinematics result: ");
-        for (int i = 0; i < result.Length; i += 6)
+        // Debug.Log("Inverse kinematics result: ");
+        // for (int i = 0; i < result.Length; i += 6)
+        // {
+        //     string strJointAngles = "";
+        //     for (int j = 0; j < 6; j++)
+        //     {
+        //         strJointAngles += result[i + j] + ", ";
+        //     }
+        //     Debug.Log("Solution " + i/6 + ": " + strJointAngles);
+        // }
+
+        // Get the number of non-zero solutions
+        int maxSolutions = 8;
+        int numSolutions = 0;
+        for (int i = 0; i < maxSolutions; i++)
         {
-            string strJointAngles = "";
+            bool valid = false;
             for (int j = 0; j < 6; j++)
             {
-                strJointAngles += result[i + j] + ", ";
+                valid = valid || result[i * 6 + j] != 0;
             }
-            Debug.Log("Solution " + i/6 + ": " + strJointAngles);
+            if (valid)
+            {
+                numSolutions++;
+            }
+        }
+
+        if (numSolutions == 0)
+        {
+            Debug.LogError("No valid solutions found");
+            return null;
         }
 
         // Find the non-zero solution closest to the initial angles
         float minDist = float.MaxValue;
         int minIndex = -1;
-        for (int i = 0; i < result.Length; i += 6)
+        for (int i = 0; i < numSolutions; i++)
         {
             float dist = 0;
-            bool valid = false;
             for (int j = 0; j < 6; j++)
             {
-                valid = valid || result[i + j] != 0;
-                dist += Mathf.Abs(result[i + j] - initialAngles[j]);
+                // Calculate the distance between the initial angles and the solution
+                // The initial angles are in degrees and negated, the solutions are in radians
+                dist += Mathf.Abs(result[i * 6 + j] + initialAngles[j] * Mathf.Deg2Rad);
             }
-            if (dist < minDist && valid)
+            if (dist < minDist)
             {
                 minDist = dist;
                 minIndex = i;
             }
         }
 
-        if (minIndex == -1)
-        {
-            Debug.LogError("No valid solution found");
-            return null;
-        }
+        // Debug.Log("Min dist: " + minDist + ", min index: " + minIndex);
 
         // Return the joint angles of the closest solution
         float[] jointAngles = new float[6];
         for (int i = 0; i < 6; i++)
         {
-            jointAngles[i] = -1.0f * result[minIndex + i] * Mathf.Rad2Deg;
+            jointAngles[i] = -1.0f * result[minIndex * 6 + i] * Mathf.Rad2Deg;
         }
 
-        Debug.Log("Joint angles: " + jointAngles[0] + ", " + jointAngles[1] + ", " + jointAngles[2] + ", " + jointAngles[3] + ", " + jointAngles[4] + ", " + jointAngles[5]);
+        // Debug.Log("Joint angles: " + jointAngles[0] + ", " + jointAngles[1] + ", " + jointAngles[2] + ", " + jointAngles[3] + ", " + jointAngles[4] + ", " + jointAngles[5]);
 
         return jointAngles;
     }
