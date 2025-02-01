@@ -165,7 +165,7 @@ Build the visual studio project and place the resulting dll file into Unity.
 
 ### Compiling for Android
 
-Download Android Studio and create a new Native C++ project. Add your cpp files to the cpp directory. Due to a lack of a suitable Fortran compiler, you will need to use CLAPACK here, which is a version of LAPACK that was translated from Fortran to C. You can download the zip file [here](https://www.netlib.org/clapack/) and place the files into your Android Studio project in a directory like `cpp\third_party\clapack`
+Download Android Studio and create a new Native C++ project. Set the Android SDK version based on the version used by your Android device. For example, the Meta Quest 3 uses at minimum SDK version 33. Add your cpp files to the cpp directory. Due to a lack of a suitable Fortran compiler, you will need to use CLAPACK here, which is a version of LAPACK that was translated from Fortran to C. You can download the zip file [here](https://www.netlib.org/clapack/) and place the files into your Android Studio project in a directory like `cpp\third_party\clapack`
 
 You will need to add a `CMakeLists.txt` file to compile CLAPACK. It should look something like this:
 ```cmake
@@ -211,7 +211,7 @@ cmake_minimum_required(VERSION 3.22.1)
 # Since this is the top level CMakeLists.txt, the project name is also accessible
 # with ${CMAKE_PROJECT_NAME} (both CMake variables are in-sync within the top level
 # build script scope).
-project("ur5e_ikfast")
+project("<robot>_ikfast")
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 11)
@@ -264,4 +264,36 @@ You may need to edit some parts of CLAPACK to get it to compile for Android. Whe
 
 ### Compiling for Linux
 
-TODO
+Compiling for Linux is more simple than the other platforms. Install cmake, LAPACK, and BLAS using `sudo apt install cmake liblapack-dev libblas-dev`. Then, create a `CMakeLists.txt` file in your directory that looks something like this (fill in <robot>):
+
+```cmake
+cmake_minimum_required(VERSION 3.10)
+project(<robot>_ikfast)
+
+# Build a shared library (.so on Linux)
+add_library(<robot>_ikfast SHARED
+    ikfast_wrapper.cpp
+    unity_wrapper.cpp
+)
+
+# If you use additional libraries, link them here:
+# Link system LAPACK and BLAS
+target_link_libraries(<robot>_ikfast
+    PRIVATE
+    lapack
+    blas
+)
+
+# Set compile options as needed
+target_compile_features(<robot>_ikfast PRIVATE cxx_std_17)
+```
+
+Build the library using:
+
+```bash
+mkdir build && cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake --build .
+```
+
+Then, copy the resulting `.so` file into `RADER\Runtime\Plugins\linux` and set the plugin properties.
