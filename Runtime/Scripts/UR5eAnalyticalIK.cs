@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using Unity.XR.CoreUtils;
 using UnityEngine;
 
 public class UR5eAnalyticalIK : IKSolver
@@ -79,15 +80,22 @@ public class UR5eAnalyticalIK : IKSolver
         return result;
     }
 
-    public override float[] InverseKinematics(Vector3 pos, Quaternion ori, float[] initialAngles)
+    public override float[] InverseKinematics(Vector3 pos, Quaternion ori, float[] initialAngles, Transform baseTransform)
     {
+        // Get the target position relative to the robot's base
+        pos = baseTransform.InverseTransformPoint(pos);
+
+        // Convert the base rotation to UR5e coordinates
+        Quaternion baseRot = new Quaternion(baseTransform.rotation.z, -baseTransform.rotation.x, -baseTransform.rotation.y, baseTransform.rotation.w);
+
         // Print the input for debugging
         // Debug.Log("Input pose: " + pos.x + ", " + pos.y + ", " + pos.z + ", " + ori.x + ", " + ori.y + ", " + ori.z + ", " + ori.w);
         // Debug.Log("Initial angles: " + initialAngles[0] + ", " + initialAngles[1] + ", " + initialAngles[2] + ", " + initialAngles[3] + ", " + initialAngles[4] + ", " + initialAngles[5]);
 
         // Convert the Unity coordinates to the UR5e coordinates (left-handed to right-handed)
         Quaternion corrected_ori;
-        corrected_ori = new Quaternion(ori.x, ori.z, ori.y, ori.w) * Quaternion.Euler(0, 0, 0); // TODO check if this final rotation is correct (check gripper rotation relative to EE)
+        corrected_ori = new Quaternion(ori.z, -ori.x, ori.y, ori.w);
+        corrected_ori = Quaternion.Inverse(baseRot) * corrected_ori;
 
         Vector3 corrected_pos = new Vector3(pos.x, pos.z, pos.y);
         Vector3 rotated_pos = new Vector3(corrected_pos.y, -corrected_pos.x, corrected_pos.z);

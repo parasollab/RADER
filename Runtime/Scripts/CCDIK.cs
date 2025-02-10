@@ -15,7 +15,7 @@ public class CCDIK : IKSolver {
     // ex. It need to be able to work with position and rotation inputs, not the transform of the target
     // and it needs to be able to work with the input pos and ori being relative to the robot's base.
 
-    public override float[] InverseKinematics(Vector3 pos, Quaternion ori, float[] initialAngles)
+    public override float[] InverseKinematics(Vector3 pos, Quaternion ori, float[] initialAngles, Transform baseTransform)
     {
         float[] angles = new float[joints.Length];
 

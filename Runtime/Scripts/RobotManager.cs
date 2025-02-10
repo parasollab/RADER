@@ -35,17 +35,14 @@ public class RobotManager : MonoBehaviour
     {
         float[] currentAngles = GetJointAngles();
 
-        // Get the target transform relative to the robot's base
-        Vector3 targetPos = urdfModel.transform.InverseTransformPoint(target.position);
-        Quaternion targetRot = Quaternion.Inverse(urdfModel.transform.rotation) * target.rotation;
-        // Quaternion targetRot = target.rotation;
-
         // Print the robot's base position and rotation for debugging
         Debug.Log("Robot base position: " + urdfModel.transform.position);
         Debug.Log("Robot base rotation: " + urdfModel.transform.rotation);
+        Debug.Log("Target position: " + target.position);
+        Debug.Log("Target rotation: " + target.rotation);
 
         // Calculate the joint angles to reach the target
-        float[] jointAngles = ikSolver.InverseKinematics(targetPos, targetRot, currentAngles);
+        float[] jointAngles = ikSolver.InverseKinematics(target.position, target.rotation, currentAngles, urdfModel.transform);
         if (jointAngles == null)
         {
             return;
