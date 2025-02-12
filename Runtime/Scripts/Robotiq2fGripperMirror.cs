@@ -105,15 +105,11 @@ public class Robotiq2fGripperMirror : MonoBehaviour
 
                     if(!gripperOnly) {
                       // Get the transformation that represents the midpoint between the thumb and the index finger
-                      // Vector3 midpoint = (thumbPosition + indexPosition) / 2;
-                      // Quaternion rotation = Quaternion.Slerp(thumbRotation, indexRotation, 0.5f);
+                      Vector3 midpoint = (thumbPosition + indexPosition) / 2;
+                      Quaternion rotation = Quaternion.Slerp(thumbRotation, indexRotation, 0.5f) * Quaternion.Euler(90, 0, 0) * Quaternion.Euler(0, 90, 0);
 
                       // Move the point back by the gripper length along the forward axis of the midpoint
-                      // midpoint -= rotation * Vector3.forward * gripperLength;
-
-                      Pose leftHandPose = leftHand.rootPose;
-                      Vector3 midpoint = leftHandPose.position;
-                      Quaternion rotation = leftHandPose.rotation * Quaternion.Euler(0, 0, 0);
+                      midpoint -= rotation * Vector3.up * gripperLength;
 
                       // Set the robot's end effector to the midpoint between the thumb and the index finger
                       leftRobotManager.SetTargetEEPose(midpoint, rotation);
@@ -160,18 +156,11 @@ public class Robotiq2fGripperMirror : MonoBehaviour
 
                     if(!gripperOnly) {
                       // Get the transformation that represents the midpoint between the thumb and the index finger
-                      // Vector3 midpoint = (thumbPosition + indexPosition) / 2;
-                      // Quaternion rotation = Quaternion.Slerp(thumbRotation, indexRotation, 0.5f);
-
-                      // // Rotate the midpoint 270 degrees about the rotation's x axis
-                      // rotation *= Quaternion.Euler(90, 0, 0);
+                      Vector3 midpoint = (thumbPosition + indexPosition) / 2;
+                      Quaternion rotation = Quaternion.Slerp(thumbRotation, indexRotation, 0.5f) * Quaternion.Euler(90, 0, 0) * Quaternion.Euler(0, 90, 0);
 
                       // Move the point back by the gripper length along the forward axis of the midpoint
-                      // midpoint += rotation * Vector3.forward * gripperLength;
-
-                      Pose rightHandPose = rightHand.rootPose;
-                      Vector3 midpoint = rightHandPose.position;
-                      Quaternion rotation = rightHandPose.rotation;
+                      midpoint -= rotation * Vector3.up * gripperLength;
 
                       // Set the robot's end effector to the midpoint between the thumb and the index finger
                       rightRobotManager.SetTargetEEPose(midpoint, rotation);

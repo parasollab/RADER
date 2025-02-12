@@ -14,6 +14,7 @@ public class RobotManager : MonoBehaviour
     public IKSolver ikSolver;  // Reference to the IK solver component
     [Obsolete]
     public ColorAffordanceThemeDatumProperty affordanceThemeDatum;
+    public bool grabBase = false;
 
     private ProcessUrdf processUrdf = new ProcessUrdf();
     private ProcessUrdf gripperProcessUrdf = new ProcessUrdf();

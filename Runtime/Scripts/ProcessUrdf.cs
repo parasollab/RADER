@@ -45,7 +45,7 @@ public class ProcessUrdf : MonoBehaviour
     [Obsolete]
     public void ProcessModel(GameObject urdfModel,
         ColorAffordanceThemeDatumProperty affordanceThemeDatum,
-        IKSolver ikSolver=null, KnobAxis knobAxis=KnobAxis.Y)
+        IKSolver ikSolver=null, KnobAxis knobAxis=KnobAxis.Y, bool grabBase=false)
     {
         if (urdfModel == null)
         {
@@ -59,10 +59,13 @@ public class ProcessUrdf : MonoBehaviour
         GameObject lastChild = reparentingList[reparentingList.Count - 1].Key;
         lastLink = findRealLastChild(lastChild);
 
-        urdfModel.AddComponent<SetupGrabBase>();
-        SetupGrabBase setupBase = urdfModel.GetComponent<SetupGrabBase>();
-        setupBase.Base = grabJoint;
-
+        if (grabBase)
+        {
+            urdfModel.AddComponent<SetupGrabBase>();
+            SetupGrabBase setupBase = urdfModel.GetComponent<SetupGrabBase>();
+            setupBase.Base = grabJoint;
+        }
+        
         urdfModel.AddComponent<SetupIK>();
         SetupIK setupIK = urdfModel.GetComponent<SetupIK>();
         setupIK.ikSolver = ikSolver;
