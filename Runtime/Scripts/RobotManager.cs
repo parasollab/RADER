@@ -51,6 +51,19 @@ public class RobotManager : MonoBehaviour
         SetJointAngles(jointAngles);
     }
 
+    public void SetTargetEEPose(Vector3 position, Quaternion rotation)
+    {
+        float[] currentAngles = GetJointAngles();
+
+        float[] jointAngles = ikSolver.InverseKinematics(position, rotation, currentAngles, urdfModel.transform);
+        if (jointAngles == null)
+        {
+            return;
+        }
+
+        SetJointAngles(jointAngles);
+    }
+
     public Transform GetEEPose()
     {
         return processUrdf.LastLink.transform;

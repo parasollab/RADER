@@ -86,15 +86,17 @@ public class UR5eAnalyticalIK : IKSolver
         pos = baseTransform.InverseTransformPoint(pos);
 
         // Convert the base rotation to UR5e coordinates
-        Quaternion baseRot = new Quaternion(baseTransform.rotation.z, -baseTransform.rotation.x, -baseTransform.rotation.y, baseTransform.rotation.w);
+        Quaternion baseRot = new Quaternion(baseTransform.rotation.z, -baseTransform.rotation.x, baseTransform.rotation.y, -baseTransform.rotation.w);
 
         // Print the input for debugging
         // Debug.Log("Input pose: " + pos.x + ", " + pos.y + ", " + pos.z + ", " + ori.x + ", " + ori.y + ", " + ori.z + ", " + ori.w);
         // Debug.Log("Initial angles: " + initialAngles[0] + ", " + initialAngles[1] + ", " + initialAngles[2] + ", " + initialAngles[3] + ", " + initialAngles[4] + ", " + initialAngles[5]);
 
         // Convert the Unity coordinates to the UR5e coordinates (left-handed to right-handed)
+        // Quaternion corrected_ori = ori;
         Quaternion corrected_ori;
-        corrected_ori = new Quaternion(ori.z, -ori.x, ori.y, ori.w);
+        corrected_ori = new Quaternion(ori.z, -ori.x, ori.y, -ori.w) * Quaternion.Euler(0, 0, 0);
+        // corrected_ori = new Quaternion(ori.z, -ori.x, ori.y, ori.w);
         corrected_ori = Quaternion.Inverse(baseRot) * corrected_ori;
 
         Vector3 corrected_pos = new Vector3(pos.x, pos.z, pos.y);
@@ -143,7 +145,7 @@ public class UR5eAnalyticalIK : IKSolver
 
         if (numSolutions == 0)
         {
-            Debug.LogError("No valid solutions found");
+            Debug.LogWarning("No valid solutions found");
             return null;
         }
 
@@ -153,17 +155,27 @@ public class UR5eAnalyticalIK : IKSolver
         for (int i = 0; i < numSolutions; i++)
         {
             float dist = 0;
+            float[] jointConfig = new float[6];
             for (int j = 0; j < 6; j++)
             {
                 // Calculate the distance between the initial angles and the solution
                 // The initial angles are in degrees and negated, the solutions are in radians
                 dist += Mathf.Abs(result[i * 6 + j] + initialAngles[j] * Mathf.Deg2Rad);
+                jointConfig[j] = result[i * 6 + j];
             }
             if (dist < minDist)
             {
                 minDist = dist;
                 minIndex = i;
             }
+
+            // Print the forward kinematics solution
+            float[] forwardResult = Forward(jointConfig);
+            Debug.Log("Forward kinematics result: ");
+            Debug.Log(forwardResult[0] + ", " + forwardResult[1] + ", " + forwardResult[2] + ", " + forwardResult[3]);
+            Debug.Log(forwardResult[4] + ", " + forwardResult[5] + ", " + forwardResult[6] + ", " + forwardResult[7]);
+            Debug.Log(forwardResult[8] + ", " + forwardResult[9] + ", " + forwardResult[10] + ", " + forwardResult[11]);
+            Debug.Log(forwardResult[12] + ", " + forwardResult[13] + ", " + forwardResult[14] + ", " + forwardResult[15]);
         }
 
         // Debug.Log("Min dist: " + minDist + ", min index: " + minIndex);
