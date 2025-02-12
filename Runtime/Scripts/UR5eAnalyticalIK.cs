@@ -88,15 +88,9 @@ public class UR5eAnalyticalIK : IKSolver
         // Convert the base rotation to UR5e coordinates
         Quaternion baseRot = new Quaternion(baseTransform.rotation.z, -baseTransform.rotation.x, baseTransform.rotation.y, -baseTransform.rotation.w);
 
-        // Print the input for debugging
-        // Debug.Log("Input pose: " + pos.x + ", " + pos.y + ", " + pos.z + ", " + ori.x + ", " + ori.y + ", " + ori.z + ", " + ori.w);
-        // Debug.Log("Initial angles: " + initialAngles[0] + ", " + initialAngles[1] + ", " + initialAngles[2] + ", " + initialAngles[3] + ", " + initialAngles[4] + ", " + initialAngles[5]);
-
         // Convert the Unity coordinates to the UR5e coordinates (left-handed to right-handed)
-        // Quaternion corrected_ori = ori;
         Quaternion corrected_ori;
-        corrected_ori = new Quaternion(ori.z, -ori.x, ori.y, -ori.w) * Quaternion.Euler(0, 0, 0);
-        // corrected_ori = new Quaternion(ori.z, -ori.x, ori.y, ori.w);
+        corrected_ori = new Quaternion(ori.z, -ori.x, ori.y, -ori.w);
         corrected_ori = Quaternion.Inverse(baseRot) * corrected_ori;
 
         Vector3 corrected_pos = new Vector3(pos.x, pos.z, pos.y);
@@ -114,18 +108,6 @@ public class UR5eAnalyticalIK : IKSolver
 
         // Call the inverse kinematics function
         float[] result = Inverse(eePose);
-
-        // Print the result for debugging
-        // Debug.Log("Inverse kinematics result: ");
-        // for (int i = 0; i < result.Length; i += 6)
-        // {
-        //     string strJointAngles = "";
-        //     for (int j = 0; j < 6; j++)
-        //     {
-        //         strJointAngles += result[i + j] + ", ";
-        //     }
-        //     Debug.Log("Solution " + i/6 + ": " + strJointAngles);
-        // }
 
         // Get the number of non-zero solutions
         int maxSolutions = 8;
@@ -168,17 +150,7 @@ public class UR5eAnalyticalIK : IKSolver
                 minDist = dist;
                 minIndex = i;
             }
-
-            // Print the forward kinematics solution
-            float[] forwardResult = Forward(jointConfig);
-            Debug.Log("Forward kinematics result: ");
-            Debug.Log(forwardResult[0] + ", " + forwardResult[1] + ", " + forwardResult[2] + ", " + forwardResult[3]);
-            Debug.Log(forwardResult[4] + ", " + forwardResult[5] + ", " + forwardResult[6] + ", " + forwardResult[7]);
-            Debug.Log(forwardResult[8] + ", " + forwardResult[9] + ", " + forwardResult[10] + ", " + forwardResult[11]);
-            Debug.Log(forwardResult[12] + ", " + forwardResult[13] + ", " + forwardResult[14] + ", " + forwardResult[15]);
         }
-
-        // Debug.Log("Min dist: " + minDist + ", min index: " + minIndex);
 
         // Return the joint angles of the closest solution
         float[] jointAngles = new float[6];
@@ -186,9 +158,7 @@ public class UR5eAnalyticalIK : IKSolver
         {
             jointAngles[i] = -1.0f * result[minIndex * 6 + i] * Mathf.Rad2Deg;
         }
-
-        // Debug.Log("Joint angles: " + jointAngles[0] + ", " + jointAngles[1] + ", " + jointAngles[2] + ", " + jointAngles[3] + ", " + jointAngles[4] + ", " + jointAngles[5]);
-
+        
         return jointAngles;
     }
 
