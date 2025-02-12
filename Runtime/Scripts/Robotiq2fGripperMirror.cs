@@ -81,6 +81,10 @@ public class Robotiq2fGripperMirror : MonoBehaviour
                     XRHandJoint thumbTip = leftHand.GetJoint(XRHandJointID.ThumbTip);
                     XRHandJoint indexTip = leftHand.GetJoint(XRHandJointID.IndexTip);
 
+                    // Get the the orientation from the proximal joints
+                    XRHandJoint thumbProx = leftHand.GetJoint(XRHandJointID.ThumbProximal);
+                    XRHandJoint indexProx = leftHand.GetJoint(XRHandJointID.IndexProximal);
+
                     Vector3 thumbPosition;
                     Quaternion thumbRotation;
                     Pose thumbPose;
@@ -103,10 +107,28 @@ public class Robotiq2fGripperMirror : MonoBehaviour
                       break;
                     }
 
+                    Quaternion thumbProxRotation;
+                    Pose thumbProxPose;
+                    if (thumbProx.TryGetPose(out thumbProxPose))
+                    {
+                      thumbProxRotation = thumbProxPose.rotation;
+                    } else {
+                      break;
+                    }
+
+                    Quaternion indexProxRotation;
+                    Pose indexProxPose;
+                    if (indexProx.TryGetPose(out indexProxPose))
+                    {
+                      indexProxRotation = indexProxPose.rotation;
+                    } else {
+                      break;
+                    }
+
                     if(!gripperOnly) {
                       // Get the transformation that represents the midpoint between the thumb and the index finger
                       Vector3 midpoint = (thumbPosition + indexPosition) / 2;
-                      Quaternion rotation = Quaternion.Slerp(thumbRotation, indexRotation, 0.5f) * Quaternion.Euler(90, 0, 0) * Quaternion.Euler(0, 90, 0);
+                      Quaternion rotation = Quaternion.Slerp(thumbProxRotation, indexProxRotation, 0.5f) * Quaternion.Euler(90, 0, 0) * Quaternion.Euler(0, 90, 0);
 
                       // Move the point back by the gripper length along the forward axis of the midpoint
                       midpoint -= rotation * Vector3.up * gripperLength;
@@ -114,8 +136,11 @@ public class Robotiq2fGripperMirror : MonoBehaviour
                       // Set the robot's end effector to the midpoint between the thumb and the index finger
                       leftRobotManager.SetTargetEEPose(midpoint, rotation);
 
-                      leftTransform.transform.position = midpoint;
-                      leftTransform.transform.rotation = rotation;
+                      if (leftTransform != null)
+                      {
+                        leftTransform.transform.position = midpoint;
+                        leftTransform.transform.rotation = rotation;
+                      }
                     }
 
                     // Set the gripper's joint angle based on the distance between the thumb and the index finger
@@ -132,6 +157,10 @@ public class Robotiq2fGripperMirror : MonoBehaviour
                     XRHandJoint thumbTip = rightHand.GetJoint(XRHandJointID.ThumbTip);
                     XRHandJoint indexTip = rightHand.GetJoint(XRHandJointID.IndexTip);
 
+                    // Get the the orientation from the proximal joints
+                    XRHandJoint thumbProx = rightHand.GetJoint(XRHandJointID.ThumbProximal);
+                    XRHandJoint indexProx = rightHand.GetJoint(XRHandJointID.IndexProximal);
+
                     Vector3 thumbPosition;
                     Quaternion thumbRotation;
                     Pose thumbPose;
@@ -154,10 +183,28 @@ public class Robotiq2fGripperMirror : MonoBehaviour
                       break;
                     }
 
+                    Quaternion thumbProxRotation;
+                    Pose thumbProxPose;
+                    if (thumbProx.TryGetPose(out thumbProxPose))
+                    {
+                      thumbProxRotation = thumbProxPose.rotation;
+                    } else {
+                      break;
+                    }
+
+                    Quaternion indexProxRotation;
+                    Pose indexProxPose;
+                    if (indexProx.TryGetPose(out indexProxPose))
+                    {
+                      indexProxRotation = indexProxPose.rotation;
+                    } else {
+                      break;
+                    }
+
                     if(!gripperOnly) {
                       // Get the transformation that represents the midpoint between the thumb and the index finger
                       Vector3 midpoint = (thumbPosition + indexPosition) / 2;
-                      Quaternion rotation = Quaternion.Slerp(thumbRotation, indexRotation, 0.5f) * Quaternion.Euler(90, 0, 0) * Quaternion.Euler(0, 90, 0);
+                      Quaternion rotation = Quaternion.Slerp(thumbProxRotation, indexProxRotation, 0.5f) * Quaternion.Euler(90, 0, 0) * Quaternion.Euler(0, 90, 0);
 
                       // Move the point back by the gripper length along the forward axis of the midpoint
                       midpoint -= rotation * Vector3.up * gripperLength;
@@ -165,8 +212,11 @@ public class Robotiq2fGripperMirror : MonoBehaviour
                       // Set the robot's end effector to the midpoint between the thumb and the index finger
                       rightRobotManager.SetTargetEEPose(midpoint, rotation);
 
-                      rightTransform.transform.position = midpoint;
-                      rightTransform.transform.rotation = rotation;
+                      if (rightTransform != null)
+                      {
+                        rightTransform.transform.position = midpoint;
+                        rightTransform.transform.rotation = rotation;
+                      }
                     }
 
                     // Set the gripper's joint angle based on the distance between the thumb and the index finger

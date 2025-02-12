@@ -51,8 +51,8 @@ public class TargetSphere : MonoBehaviour
 
         // Move the target a known transformation
         // target.transform.position = new Vector3(-0.47659859f, -0.15102799f, 0.49082398f);
-        target.transform.position = new Vector3(-0.5f, 0.5f, 0.4f);
-        target.transform.rotation = new Quaternion(0.6922559f, 0.7213566f, -0.0004294f, -0.0206427f);
+        // target.transform.position = new Vector3(-0.5f, 0.5f, 0.4f);
+        // target.transform.rotation = new Quaternion(0.6922559f, 0.7213566f, -0.0004294f, -0.0206427f);
     }
 
     // Update is called once per frame
@@ -62,12 +62,12 @@ public class TargetSphere : MonoBehaviour
             return;
         }
 
-        // if (!m_active) {
-        //     Transform ee = robotManager.GetEEPose();
-        //     Vector3 targetPos = ee.position;
-        //     target.transform.position = targetPos;
-        // } else {
+        if (!m_active) {
+            Transform ee = robotManager.GetEEPose();
+            Vector3 targetPos = ee.position;
+            target.transform.position = targetPos;
+        } else {
             robotManager.SetTargetEEPose(target.transform);
-        // }
+        }
     }
 }
