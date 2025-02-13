@@ -23,26 +23,30 @@ public class SetupUI : MonoBehaviour
     public float recordInterval = 0.1f;
     public float publishStateInterval = 0.2f;
 
-    // A simple class to store per-robot data.
+   // A simple class to store per-robot data including namespaced topics.
     public class RobotInfo {
         public GameObject robotObject;
         public RobotManager manager;
         public List<string> jointNames;
         public List<Tuple<float, float>> jointLimits;
-        // For calculating torque per joint.
         public Dictionary<int, float> previousAngles = new Dictionary<int, float>();
         public Dictionary<int, float> momentsOfInertia = new Dictionary<int, float>();
+
+        // Namespaced topics.
+        public string trajTopic;
+        public string inputStateTopic;
+        public string outputStateTopic;
+        public string interactionTopic;
     }
 
     // List of robot data.
     private List<RobotInfo> robots = new List<RobotInfo>();
-    // selectedRobotIndex: -1 means “All Robots”, otherwise index into robots list.
+    // selectedRobotIndex: -1 means “All Robots”, otherwise index into robots.
     private int selectedRobotIndex = 0;
 
     private XRIDefaultInputActions inputActions;
     private ROSConnection ros;
     private bool recordROS = false;
-    // When recording, we store a list of trajectory points per robot (keyed by robot index).
     private Dictionary<int, List<JointTrajectoryPointMsg>> jointTrajectoryPointsDict = new Dictionary<int, List<JointTrajectoryPointMsg>>();
     private Dictionary<int, JointTrajectoryMsg> lastTrajectories = new Dictionary<int, JointTrajectoryMsg>();
     private Dictionary<int, float> recordStartTimes = new Dictionary<int, float>();
@@ -69,19 +73,7 @@ public class SetupUI : MonoBehaviour
 
     void Start()
     {
-        if (ros == null) ros = ROSConnection.GetOrCreateInstance();
-        ros.RegisterPublisher<JointTrajectoryMsg>(trajTopicName);
-        ros.RegisterPublisher<JointStateMsg>(outputStateTopicName);
-        ros.RegisterPublisher<BoolMsg>(interactionTopicName);
-        ros.Subscribe<JointStateMsg>(inputStateTopicName, MirrorStateCallback);
-
-        inputActions = new XRIDefaultInputActions();
-        inputActions.XRILeftHand.Enable();
-        inputActions.XRIRightHand.Enable();
-
-        inputActions.XRIRightHand.PressA.performed += SimulateRecordButtonClick;
-        inputActions.XRIRightHand.PressB.performed += SimulateReplayButtonClick;
-        inputActions.XRILeftHand.PressX.performed += SimulateMirrorButtonClick;
+        ros = ROSConnection.GetOrCreateInstance();
 
         // Build our robot data list from robotModels.
         foreach (GameObject robot in robotModels)
@@ -92,18 +84,32 @@ public class SetupUI : MonoBehaviour
             info.manager = manager;
             info.jointNames = new List<string>(manager.GetJointNames());
             info.jointLimits = new List<Tuple<float, float>>(manager.GetJointLimits());
-            // Initialize previous angles and moments (using an example inertia value).
+            // Initialize per-joint data.
             float[] jointAngles = manager.GetJointAngles();
             for (int i = 0; i < jointAngles.Length; i++)
             {
                 info.previousAngles[i] = jointAngles[i];
                 info.momentsOfInertia[i] = 0.0005f;
             }
+            // Compute namespaced topics
+            string ns = manager.robotNamespace;
+            info.trajTopic = $"/{ns}{trajTopicName}";
+            info.inputStateTopic = $"/{ns}{inputStateTopicName}";
+            info.outputStateTopic = $"/{ns}{outputStateTopicName}";
+            info.interactionTopic = $"/{ns}{interactionTopicName}";
+
+            // Register publishers/subscribers using namespaced topics.
+            ros.RegisterPublisher<JointTrajectoryMsg>(info.trajTopic);
+            ros.RegisterPublisher<JointStateMsg>(info.outputStateTopic);
+            ros.RegisterPublisher<BoolMsg>(info.interactionTopic);
+            ros.Subscribe<JointStateMsg>(info.inputStateTopic, (msg) => MirrorStateCallbackForRobot(info, msg));
+
             robots.Add(info);
         }
         // Default to the first robot (i.e. not “All Robots”).
         selectedRobotIndex = 0;
 
+        // Set up UI.
         LoadUI();
     }
 
@@ -121,21 +127,40 @@ public class SetupUI : MonoBehaviour
     public void startMirroring()
     {
         mirrorInputState = true;
-        TextMeshProUGUI mirrorButtonText = mirrorButtonObject.GetNamedChild("Button Front").GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
+        TextMeshProUGUI mirrorButtonText = mirrorButtonObject.GetNamedChild("Button Front")
+            .GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
         mirrorButtonText.text = "Stop Mirroring";
-        sendInteractionMessage(false);
+        // Publish interaction message using the namespaced topic.
+        if (selectedRobotIndex == -1)
+        {
+            foreach (var robot in robots)
+                sendInteractionMessage(robot, false);
+        }
+        else
+        {
+            sendInteractionMessage(robots[selectedRobotIndex], false);
+        }
     }
 
     public void stopMirroring()
     {
         mirrorInputState = false;
-        TextMeshProUGUI mirrorButtonText = mirrorButtonObject.GetNamedChild("Button Front").GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
+        TextMeshProUGUI mirrorButtonText = mirrorButtonObject.GetNamedChild("Button Front")
+            .GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
         mirrorButtonText.text = "Start Mirroring";
-        sendInteractionMessage(true);
+        if (selectedRobotIndex == -1)
+        {
+            foreach (var robot in robots)
+                sendInteractionMessage(robot, true);
+        }
+        else
+        {
+            sendInteractionMessage(robots[selectedRobotIndex], true);
+        }
     }
 
-    // Mirror callback now directs the incoming joint state either to the selected robot or to all.
-    void MirrorStateCallback(JointStateMsg jointState)
+    // Mirror callback for each robot—only updates the robot if it’s the selected one (or if all robots are selected).
+    void MirrorStateCallbackForRobot(RobotInfo robot, JointStateMsg jointState)
     {
         if (mirrorInputState)
         {
@@ -147,27 +172,18 @@ public class SetupUI : MonoBehaviour
             jointAngles[4] = -((float)jointState.position[3] * Mathf.Rad2Deg);
             jointAngles[5] = -((float)jointState.position[4] * Mathf.Rad2Deg);
 
-            if (selectedRobotIndex == -1)
+            if (selectedRobotIndex == -1 || robots[selectedRobotIndex] == robot)
             {
-                foreach (var robot in robots)
-                {
-                    robot.manager.SetJointAngles(jointAngles);
-                }
-            }
-            else
-            {
-                robots[selectedRobotIndex].manager.SetJointAngles(jointAngles);
+                robot.manager.SetJointAngles(jointAngles);
             }
         }
     }
 
-    void sendInteractionMessage(bool interaction)
+    // Publishes an interaction message on the robot's namespaced topic.
+    void sendInteractionMessage(RobotInfo robot, bool interaction)
     {
-        BoolMsg interactionMsg = new BoolMsg
-        {
-            data = interaction
-        };
-        ros.Publish(interactionTopicName, interactionMsg);
+        BoolMsg interactionMsg = new BoolMsg { data = interaction };
+        ros.Publish(robot.interactionTopic, interactionMsg);
     }
 
     // Publish state for either the selected robot or all robots.
@@ -192,7 +208,7 @@ public class SetupUI : MonoBehaviour
                         position = Array.ConvertAll(jointPositions, item => (double)item),
                         effort = jointTorques.ToArray()
                     };
-                    ros.Publish(outputStateTopicName, jointState);
+                    ros.Publish(robot.outputStateTopic, jointState);
                 }
             }
             else
@@ -211,13 +227,12 @@ public class SetupUI : MonoBehaviour
                     position = Array.ConvertAll(jointPositions, item => (double)item),
                     effort = jointTorques.ToArray()
                 };
-                ros.Publish(outputStateTopicName, jointState);
+                ros.Publish(robot.outputStateTopic, jointState);
             }
         }
     }
 
-    // LoadUI now sets up the new robot-selection dropdown (located in the Header Interactable)
-    // as well as reconfigures the joint dropdown/slider to update based on the selected robot.
+    // Sets up UI components including a new robot-selection dropdown.
     void LoadUI()
     {
         if (menuUI == null)
@@ -226,14 +241,12 @@ public class SetupUI : MonoBehaviour
         }
         menuUI = Instantiate(menuUI, transform);
 
-        // Set up the robot selection dropdown.
+        // Set up the robot selection dropdown (located under "Header Interactable").
         GameObject headerInteractable = menuUI.GetNamedChild("Spatial Panel Scroll")
             .GetNamedChild("Header Interactable");
         TMP_Dropdown robotDropdown = headerInteractable.GetNamedChild("Robot Dropdown")
-            .GetNamedChild("Dropdown")
-            .GetComponent<TMP_Dropdown>();
+            .GetNamedChild("Dropdown").GetComponent<TMP_Dropdown>();
 
-        // Populate options: first option is "All Robots", then one for each robot.
         List<string> robotOptions = new List<string>();
         robotOptions.Add("All Robots");
         foreach (var robot in robots)
@@ -242,33 +255,31 @@ public class SetupUI : MonoBehaviour
         }
         robotDropdown.ClearOptions();
         robotDropdown.AddOptions(robotOptions);
-        // Default: select the first robot (dropdown value 1) so that joint controls are enabled.
+        // Default: select the first robot (dropdown value 1).
         robotDropdown.value = 1;
         selectedRobotIndex = 0;
 
-        // Set up joint selection dropdown and slider (from the Robot Scroll View).
+        // Set up joint selection dropdown and slider (from the "Robot Scroll View").
         GameObject contentGameObject = menuUI.GetNamedChild("Spatial Panel Scroll")
             .GetNamedChild("Robot Scroll View")
             .GetNamedChild("Viewport")
             .GetNamedChild("Content");
 
-        // Record button
+        // Record button.
         recordButtonObject = contentGameObject.GetNamedChild("Record Button")
             .GetNamedChild("Text Poke Button");
         recordButton = recordButtonObject.GetComponent<Button>();
         TextMeshProUGUI recordButtonText = recordButtonObject
             .GetNamedChild("Button Front")
-            .GetNamedChild("Text (TMP) ")
-            .GetComponent<TextMeshProUGUI>();
+            .GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
 
-        // Send button
+        // Send button.
         GameObject sendButtonObject = contentGameObject.GetNamedChild("Send Button")
             .GetNamedChild("Text Poke Button");
         sendButton = sendButtonObject.GetComponent<Button>();
         TextMeshProUGUI sendButtonText = sendButtonObject
             .GetNamedChild("Button Front")
-            .GetNamedChild("Text (TMP) ")
-            .GetComponent<TextMeshProUGUI>();
+            .GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
 
         sendButton.onClick.AddListener(() =>
         {
@@ -276,7 +287,9 @@ public class SetupUI : MonoBehaviour
             {
                 foreach (var traj in lastTrajectories.Values)
                 {
-                    sendJointPositionMessage(traj);
+                    int index = robots.FindIndex(r => r.robotObject.name == traj.header.frame_id);
+                    if (index >= 0)
+                        ros.Publish(robots[index].trajTopic, traj);
                 }
                 lastTrajectories.Clear();
                 sendButton.interactable = false;
@@ -285,7 +298,7 @@ public class SetupUI : MonoBehaviour
             {
                 if (lastTrajectories.ContainsKey(selectedRobotIndex))
                 {
-                    sendJointPositionMessage(lastTrajectories[selectedRobotIndex]);
+                    ros.Publish(robots[selectedRobotIndex].trajTopic, lastTrajectories[selectedRobotIndex]);
                     lastTrajectories.Remove(selectedRobotIndex);
                     sendButton.interactable = false;
                 }
@@ -293,11 +306,10 @@ public class SetupUI : MonoBehaviour
         });
         sendButton.interactable = false;
 
-        // Replay button
+        // Replay Button.
         GameObject replayButtonObject = contentGameObject.GetNamedChild("Replay Button")
             .GetNamedChild("Text Poke Button");
         replayButton = replayButtonObject.GetComponent<Button>();
-
         replayButton.onClick.AddListener(() =>
         {
             if (selectedRobotIndex == -1)
@@ -319,9 +331,9 @@ public class SetupUI : MonoBehaviour
         // Record button functionality.
         recordButton.onClick.AddListener(() =>
         {
-            if (recordROS == true)
+            if (recordROS)
             {
-                // Stop recording and package the trajectory for each robot.
+                // Stop recording.
                 recordROS = false;
                 recordButtonText.text = "Start Recording";
                 if (selectedRobotIndex == -1)
@@ -364,7 +376,16 @@ public class SetupUI : MonoBehaviour
                     lastTrajectories[selectedRobotIndex] = trajectory;
                     sendButton.interactable = true;
                 }
-                sendInteractionMessage(false);
+                if (selectedRobotIndex == -1)
+                {
+                    foreach (var robot in robots)
+                        sendInteractionMessage(robot, true);
+                }
+                else
+                {
+                    sendInteractionMessage(robots[selectedRobotIndex], true);
+                }
+                mirrorButton.onClick.Invoke();
             }
             else
             {
@@ -384,10 +405,18 @@ public class SetupUI : MonoBehaviour
                 {
                     jointTrajectoryPointsDict[selectedRobotIndex] = new List<JointTrajectoryPointMsg>();
                     recordStartTimes[selectedRobotIndex] = Time.time;
-                    if(lastTrajectories.ContainsKey(selectedRobotIndex))
+                    if (lastTrajectories.ContainsKey(selectedRobotIndex))
                         lastTrajectories.Remove(selectedRobotIndex);
                 }
-                sendInteractionMessage(true);
+                if (selectedRobotIndex == -1)
+                {
+                    foreach (var robot in robots)
+                        sendInteractionMessage(robot, false);
+                }
+                else
+                {
+                    sendInteractionMessage(robots[selectedRobotIndex], false);
+                }
                 mirrorButton.onClick.Invoke();
             }
         });
@@ -395,15 +424,12 @@ public class SetupUI : MonoBehaviour
 
         // Joint selection dropdown and slider.
         jointDropdown = contentGameObject.GetNamedChild("List Item Dropdown")
-            .GetNamedChild("Dropdown")
-            .GetComponent<TMP_Dropdown>();
+            .GetNamedChild("Dropdown").GetComponent<TMP_Dropdown>();
         jointSlider = contentGameObject.GetNamedChild("List Item Slider")
-            .GetNamedChild("MinMax Slider")
-            .GetComponent<Slider>();
+            .GetNamedChild("MinMax Slider").GetComponent<Slider>();
         jointSliderText = jointSlider.gameObject.GetNamedChild("Value Text")
             .GetComponent<TextMeshProUGUI>();
 
-        // Initialize joint dropdown based on the currently selected robot.
         if (selectedRobotIndex != -1)
         {
             jointDropdown.ClearOptions();
@@ -416,7 +442,6 @@ public class SetupUI : MonoBehaviour
         }
         else
         {
-            // When "All Robots" is selected, disable joint controls.
             jointDropdown.interactable = false;
             jointSlider.interactable = false;
         }
@@ -441,7 +466,6 @@ public class SetupUI : MonoBehaviour
             }
         });
 
-        // When the user changes the robot selection...
         robotDropdown.onValueChanged.AddListener(delegate {
             if (robotDropdown.value == 0)
             {
@@ -454,7 +478,6 @@ public class SetupUI : MonoBehaviour
                 selectedRobotIndex = robotDropdown.value - 1;
                 jointDropdown.interactable = true;
                 jointSlider.interactable = true;
-                // Refresh joint dropdown options.
                 jointDropdown.ClearOptions();
                 jointDropdown.AddOptions(robots[selectedRobotIndex].jointNames);
                 int jointIndex = jointDropdown.value;
@@ -478,10 +501,8 @@ public class SetupUI : MonoBehaviour
         mirrorButtonObject = contentGameObject.GetNamedChild("Mirror Input Button")
             .GetNamedChild("Text Poke Button");
         mirrorButton = mirrorButtonObject.GetComponent<Button>();
-        TextMeshProUGUI mirrorButtonText = mirrorButtonObject
-            .GetNamedChild("Button Front")
-            .GetNamedChild("Text (TMP) ")
-            .GetComponent<TextMeshProUGUI>();
+        TextMeshProUGUI mirrorButtonText = mirrorButtonObject.GetNamedChild("Button Front")
+            .GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
 
         mirrorButton.onClick.AddListener(() =>
         {
@@ -500,10 +521,8 @@ public class SetupUI : MonoBehaviour
         publishStateButtonObject = contentGameObject.GetNamedChild("Publish State Button")
             .GetNamedChild("Text Poke Button");
         Button publishStateButton = publishStateButtonObject.GetComponent<Button>();
-        TextMeshProUGUI publishStateButtonText = publishStateButtonObject
-            .GetNamedChild("Button Front")
-            .GetNamedChild("Text (TMP) ")
-            .GetComponent<TextMeshProUGUI>();
+        TextMeshProUGUI publishStateButtonText = publishStateButtonObject.GetNamedChild("Button Front")
+            .GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
 
         publishStateButton.onClick.AddListener(() =>
         {
@@ -524,10 +543,8 @@ public class SetupUI : MonoBehaviour
         setHomeButtonObject = contentGameObject.GetNamedChild("Set Home Button")
             .GetNamedChild("Text Poke Button");
         Button setHomeButton = setHomeButtonObject.GetComponent<Button>();
-        TextMeshProUGUI setHomeButtonText = setHomeButtonObject
-            .GetNamedChild("Button Front")
-            .GetNamedChild("Text (TMP) ")
-            .GetComponent<TextMeshProUGUI>();
+        TextMeshProUGUI setHomeButtonText = setHomeButtonObject.GetNamedChild("Button Front")
+            .GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
 
         setHomeButton.onClick.AddListener(() =>
         {
@@ -548,10 +565,8 @@ public class SetupUI : MonoBehaviour
         goHomeButtonObject = contentGameObject.GetNamedChild("Reset to Home Button")
             .GetNamedChild("Text Poke Button");
         Button goHomeButton = goHomeButtonObject.GetComponent<Button>();
-        TextMeshProUGUI goHomeButtonText = goHomeButtonObject
-            .GetNamedChild("Button Front")
-            .GetNamedChild("Text (TMP) ")
-            .GetComponent<TextMeshProUGUI>();
+        TextMeshProUGUI goHomeButtonText = goHomeButtonObject.GetNamedChild("Button Front")
+            .GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
 
         goHomeButton.onClick.AddListener(() =>
         {
@@ -630,14 +645,14 @@ public class SetupUI : MonoBehaviour
         }
     }
 
-    void sendJointPositionMessage(JointTrajectoryMsg jointTrajectory)
+    // Publishes the joint trajectory message on the robot's namespaced trajectory topic.
+    void sendJointPositionMessage(JointTrajectoryMsg jointTrajectory, RobotInfo robot)
     {
-        ros.Publish(trajTopicName, jointTrajectory);
+        ros.Publish(robot.trajTopic, jointTrajectory);
         trajectoryLog.Add(jointTrajectory);
-        sendInteractionMessage(false);
+        sendInteractionMessage(robot, false);
     }
 
-    // Replay coroutine (unchanged aside from using the selected robot’s joint names when needed).
     IEnumerator playTrajectory(JointTrajectoryMsg trajectory)
     {
         JointTrajectoryPointMsg[] points = trajectory.points;
@@ -670,7 +685,6 @@ public class SetupUI : MonoBehaviour
         if (duration <= 0f) duration = 0.000001f;
         if (selectedRobotIndex == -1)
         {
-            // Update all robots.
             while (elapsedTime < duration)
             {
                 elapsedTime += Time.deltaTime;
@@ -705,7 +719,7 @@ public class SetupUI : MonoBehaviour
 
     double durationToDouble(DurationMsg duration)
     {
-        return duration.sec + (duration.nanosec * 0.000000001);
+        return duration.sec + (duration.nanosec * 1e-9);
     }
 
     void resetTrajectoryLog()
@@ -725,5 +739,4 @@ public class SetupUI : MonoBehaviour
     {
         mirrorButton.onClick.Invoke();
     }
-
 }
