@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using TMPro;
-using Unity.VRTemplate;
 using Unity.XR.CoreUtils;
 using UnityEngine;
 using UnityEngine.UI;
@@ -11,64 +10,66 @@ using RosMessageTypes.Trajectory;
 using RosMessageTypes.BuiltinInterfaces;
 using RosMessageTypes.Std;
 using RosMessageTypes.Sensor;
-using RosMessageTypes.Hri;
 using System.Collections;
-
-// TODO: Currently, only the first robot is used, need to generalize for multiple robots.
 
 public class SetupUI : MonoBehaviour
 {
     public GameObject menuUI;
     public List<GameObject> robotModels;
     public string trajTopicName = "/joint_trajectory";
-    public string queryTopicName = "/joint_query";
     public string inputStateTopicName = "/joint_states";
     public string outputStateTopicName = "/virtual_joint_state";
     public string interactionTopicName = "/interaction";
     public float recordInterval = 0.1f;
     public float publishStateInterval = 0.2f;
 
-    private List<string> jointNames;
-    private List<Tuple<float, float>> jointLimits;
+    // A simple class to store per-robot data.
+    public class RobotInfo {
+        public GameObject robotObject;
+        public RobotManager manager;
+        public List<string> jointNames;
+        public List<Tuple<float, float>> jointLimits;
+        // For calculating torque per joint.
+        public Dictionary<int, float> previousAngles = new Dictionary<int, float>();
+        public Dictionary<int, float> momentsOfInertia = new Dictionary<int, float>();
+    }
+
+    // List of robot data.
+    private List<RobotInfo> robots = new List<RobotInfo>();
+    // selectedRobotIndex: -1 means “All Robots”, otherwise index into robots list.
+    private int selectedRobotIndex = 0;
 
     private XRIDefaultInputActions inputActions;
-
     private ROSConnection ros;
     private bool recordROS = false;
-    private List<double> startPositions;
-    private List<double> goalPositions;
-    private List<JointTrajectoryPointMsg> jointTrajectoryPoints = new List<JointTrajectoryPointMsg>();
+    // When recording, we store a list of trajectory points per robot (keyed by robot index).
+    private Dictionary<int, List<JointTrajectoryPointMsg>> jointTrajectoryPointsDict = new Dictionary<int, List<JointTrajectoryPointMsg>>();
+    private Dictionary<int, JointTrajectoryMsg> lastTrajectories = new Dictionary<int, JointTrajectoryMsg>();
+    private Dictionary<int, float> recordStartTimes = new Dictionary<int, float>();
+
     private bool mirrorInputState = false;
     private bool publishState = true;
     private List<JointTrajectoryMsg> trajectoryLog = new List<JointTrajectoryMsg>();
 
-    private GameObject startButtonObject;
-    private GameObject goalButtonObject;
-    private GameObject queryButtonObject;
-
     private GameObject recordButtonObject;
-    private float recordStartTime;
-
     private GameObject mirrorButtonObject;
     private GameObject publishStateButtonObject;
-
     private GameObject setHomeButtonObject;
     private GameObject goHomeButtonObject;
-    private List<double> jointTorques;
-    private Dictionary<int, float> previousAngles = new Dictionary<int, float>();
-    private Dictionary<int, float> momentsOfInertia = new Dictionary<int, float>();
-    private JointTrajectoryMsg lastTrajectory = null;
 
     private Button recordButton;
     private Button replayButton;
     private Button sendButton;
     private Button mirrorButton;
 
+    // UI elements for joint selection.
+    private TMP_Dropdown jointDropdown;
+    private Slider jointSlider;
+    private TextMeshProUGUI jointSliderText;
+
     void Start()
     {
-        Debug.Log("SetupUI Start");
         if (ros == null) ros = ROSConnection.GetOrCreateInstance();
-        ros.RegisterPublisher<JointQueryMsg>(queryTopicName);
         ros.RegisterPublisher<JointTrajectoryMsg>(trajTopicName);
         ros.RegisterPublisher<JointStateMsg>(outputStateTopicName);
         ros.RegisterPublisher<BoolMsg>(interactionTopicName);
@@ -82,27 +83,39 @@ public class SetupUI : MonoBehaviour
         inputActions.XRIRightHand.PressB.performed += SimulateReplayButtonClick;
         inputActions.XRILeftHand.PressX.performed += SimulateMirrorButtonClick;
 
-        // Load the joint information
-        RobotManager robotManager = robotModels[0].GetComponent<RobotManager>();
-        jointNames = robotManager.GetJointNames();
-        jointLimits = robotManager.GetJointLimits();
-        
+        // Build our robot data list from robotModels.
+        foreach (GameObject robot in robotModels)
+        {
+            RobotManager manager = robot.GetComponent<RobotManager>();
+            RobotInfo info = new RobotInfo();
+            info.robotObject = robot;
+            info.manager = manager;
+            info.jointNames = new List<string>(manager.GetJointNames());
+            info.jointLimits = new List<Tuple<float, float>>(manager.GetJointLimits());
+            // Initialize previous angles and moments (using an example inertia value).
+            float[] jointAngles = manager.GetJointAngles();
+            for (int i = 0; i < jointAngles.Length; i++)
+            {
+                info.previousAngles[i] = jointAngles[i];
+                info.momentsOfInertia[i] = 0.0005f;
+            }
+            robots.Add(info);
+        }
+        // Default to the first robot (i.e. not “All Robots”).
+        selectedRobotIndex = 0;
+
         LoadUI();
-        
-        InitializeKnobData();
     }
 
-
-    void InitializeKnobData()
+    // Helper to compute torque for a given robot’s joint.
+    float CalculateTorqueForRobot(RobotInfo robot, int i, float currentAngle)
     {
-        RobotManager robotManager = robotModels[0].GetComponent<RobotManager>();
-        float[] jointAngles = robotManager.GetJointAngles();
-
-        for(int i = 0; i < jointAngles.Length; i++)
-        {
-            previousAngles[i] = jointAngles[i];
-            momentsOfInertia[i] = 0.0005f; // Example value, adjust as necessary
-        }
+        float previousAngle = robot.previousAngles[i];
+        float deltaAngle = Mathf.DeltaAngle(previousAngle, currentAngle);
+        float angularVelocity = deltaAngle / Time.deltaTime;
+        float torque = robot.momentsOfInertia[i] * angularVelocity;
+        robot.previousAngles[i] = currentAngle;
+        return torque;
     }
 
     public void startMirroring()
@@ -110,8 +123,6 @@ public class SetupUI : MonoBehaviour
         mirrorInputState = true;
         TextMeshProUGUI mirrorButtonText = mirrorButtonObject.GetNamedChild("Button Front").GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
         mirrorButtonText.text = "Stop Mirroring";
-
-        // Let the planner know that interaction is not happening
         sendInteractionMessage(false);
     }
 
@@ -120,12 +131,10 @@ public class SetupUI : MonoBehaviour
         mirrorInputState = false;
         TextMeshProUGUI mirrorButtonText = mirrorButtonObject.GetNamedChild("Button Front").GetNamedChild("Text (TMP) ").GetComponent<TextMeshProUGUI>();
         mirrorButtonText.text = "Start Mirroring";
-
-        // Let the planner know that interaction is starting
         sendInteractionMessage(true);
     }
 
-    // TODO this is hardcoded for the UR5e, need to generalize
+    // Mirror callback now directs the incoming joint state either to the selected robot or to all.
     void MirrorStateCallback(JointStateMsg jointState)
     {
         if (mirrorInputState)
@@ -138,8 +147,17 @@ public class SetupUI : MonoBehaviour
             jointAngles[4] = -((float)jointState.position[3] * Mathf.Rad2Deg);
             jointAngles[5] = -((float)jointState.position[4] * Mathf.Rad2Deg);
 
-            RobotManager robotManager = robotModels[0].GetComponent<RobotManager>();
-            robotManager.SetJointAngles(jointAngles);
+            if (selectedRobotIndex == -1)
+            {
+                foreach (var robot in robots)
+                {
+                    robot.manager.SetJointAngles(jointAngles);
+                }
+            }
+            else
+            {
+                robots[selectedRobotIndex].manager.SetJointAngles(jointAngles);
+            }
         }
     }
 
@@ -152,99 +170,54 @@ public class SetupUI : MonoBehaviour
         ros.Publish(interactionTopicName, interactionMsg);
     }
 
+    // Publish state for either the selected robot or all robots.
     void PublishState()
     {
         if (publishState)
         {
-            RobotManager robotManager = robotModels[0].GetComponent<RobotManager>();
-            float[] jointPositions = robotManager.GetJointAngles();
-
-
-            jointTorques = new List<double>();
-            for (int i = 0; i < jointPositions.Length; i++)
+            if (selectedRobotIndex == -1)
             {
-                // Get the torque from the knob
-                float torque = CalculateTorque(i, jointPositions[i] * Mathf.Deg2Rad);
-                jointTorques.Add(torque);
+                foreach (var robot in robots)
+                {
+                    float[] jointPositions = robot.manager.GetJointAngles();
+                    List<double> jointTorques = new List<double>();
+                    for (int i = 0; i < jointPositions.Length; i++)
+                    {
+                        float torque = CalculateTorqueForRobot(robot, i, jointPositions[i] * Mathf.Deg2Rad);
+                        jointTorques.Add(torque);
+                    }
+                    JointStateMsg jointState = new JointStateMsg
+                    {
+                        name = robot.jointNames.ToArray(),
+                        position = Array.ConvertAll(jointPositions, item => (double)item),
+                        effort = jointTorques.ToArray()
+                    };
+                    ros.Publish(outputStateTopicName, jointState);
+                }
             }
-           
-            // Publish the joint state message
-            JointStateMsg jointState = new JointStateMsg
+            else
             {
-                name = jointNames.ToArray(),
-                position = Array.ConvertAll(jointPositions, item => (double)item),
-                effort = jointTorques.ToArray()
-            };
-            ros.Publish(outputStateTopicName, jointState);
+                var robot = robots[selectedRobotIndex];
+                float[] jointPositions = robot.manager.GetJointAngles();
+                List<double> jointTorques = new List<double>();
+                for (int i = 0; i < jointPositions.Length; i++)
+                {
+                    float torque = CalculateTorqueForRobot(robot, i, jointPositions[i] * Mathf.Deg2Rad);
+                    jointTorques.Add(torque);
+                }
+                JointStateMsg jointState = new JointStateMsg
+                {
+                    name = robot.jointNames.ToArray(),
+                    position = Array.ConvertAll(jointPositions, item => (double)item),
+                    effort = jointTorques.ToArray()
+                };
+                ros.Publish(outputStateTopicName, jointState);
+            }
         }
     }
 
-    void setStart()
-    {
-        RobotManager robotManager = robotModels[0].GetComponent<RobotManager>();
-        float[] jointAngles = robotManager.GetJointAngles();
-
-        startPositions = new List<double>();
-        for (int i = 0; i < jointAngles.Length; i++)
-        {
-            startPositions.Add(jointAngles[i] * (float)Math.PI / 180.0);
-        }
-
-        CheckQueryButton();
-    }
-
-    void setGoal()
-    {
-        RobotManager robotManager = robotModels[0].GetComponent<RobotManager>();
-        float[] jointAngles = robotManager.GetJointAngles();
-
-        goalPositions = new List<double>();
-        for (int i = 0; i < jointAngles.Length; i++)
-        {
-            goalPositions.Add(jointAngles[i] * (float)Math.PI / 180.0);
-        }
-
-        CheckQueryButton();
-    }
-
-    void CheckQueryButton()
-    {
-        if (startPositions != null && goalPositions != null)
-        {
-            Debug.Log("Both start and goal are set");
-
-            // Enable the query send button
-            Button queryButton = queryButtonObject.GetComponent<Button>();
-            queryButton.interactable = true;
-        }
-    }
-
-    void sendQueryMessage()
-    {
-        JointStateMsg start = new JointStateMsg
-        {
-            name = jointNames.ToArray(),
-            position = startPositions.ToArray()
-        };
-
-        JointStateMsg goal = new JointStateMsg
-        {
-            name = jointNames.ToArray(),
-            position = goalPositions.ToArray()
-        };
-
-        JointQueryMsg jointQuery = new JointQueryMsg
-        {
-            start = start,
-            goal = goal
-        };
-        ros.Publish(queryTopicName, jointQuery);
-
-        // Also enable the record button
-        recordButton = recordButtonObject.GetComponent<Button>();
-        recordButton.interactable = true;
-    }
-
+    // LoadUI now sets up the new robot-selection dropdown (located in the Header Interactable)
+    // as well as reconfigures the joint dropdown/slider to update based on the selected robot.
     void LoadUI()
     {
         if (menuUI == null)
@@ -253,7 +226,27 @@ public class SetupUI : MonoBehaviour
         }
         menuUI = Instantiate(menuUI, transform);
 
-        // Load the interface for recording demos and setting joint angles
+        // Set up the robot selection dropdown.
+        GameObject headerInteractable = menuUI.GetNamedChild("Spatial Panel Scroll")
+            .GetNamedChild("Header Interactable");
+        TMP_Dropdown robotDropdown = headerInteractable.GetNamedChild("Robot Dropdown")
+            .GetNamedChild("Dropdown")
+            .GetComponent<TMP_Dropdown>();
+
+        // Populate options: first option is "All Robots", then one for each robot.
+        List<string> robotOptions = new List<string>();
+        robotOptions.Add("All Robots");
+        foreach (var robot in robots)
+        {
+            robotOptions.Add(robot.robotObject.name);
+        }
+        robotDropdown.ClearOptions();
+        robotDropdown.AddOptions(robotOptions);
+        // Default: select the first robot (dropdown value 1) so that joint controls are enabled.
+        robotDropdown.value = 1;
+        selectedRobotIndex = 0;
+
+        // Set up joint selection dropdown and slider (from the Robot Scroll View).
         GameObject contentGameObject = menuUI.GetNamedChild("Spatial Panel Scroll")
             .GetNamedChild("Robot Scroll View")
             .GetNamedChild("Viewport")
@@ -277,164 +270,211 @@ public class SetupUI : MonoBehaviour
             .GetNamedChild("Text (TMP) ")
             .GetComponent<TextMeshProUGUI>();
 
-
-        // Send button functionality
         sendButton.onClick.AddListener(() =>
         {
-            if (lastTrajectory != null)
+            if (selectedRobotIndex == -1)
             {
-                sendJointPositionMessage(lastTrajectory);
-                // Reset lastTrajectory to null after sending
-                lastTrajectory = null;
-                sendButton.interactable = false; // Disable the send button since there's no trajectory to send
+                foreach (var traj in lastTrajectories.Values)
+                {
+                    sendJointPositionMessage(traj);
+                }
+                lastTrajectories.Clear();
+                sendButton.interactable = false;
+            }
+            else
+            {
+                if (lastTrajectories.ContainsKey(selectedRobotIndex))
+                {
+                    sendJointPositionMessage(lastTrajectories[selectedRobotIndex]);
+                    lastTrajectories.Remove(selectedRobotIndex);
+                    sendButton.interactable = false;
+                }
             }
         });
+        sendButton.interactable = false;
 
-        sendButton.interactable = false; // Initially disabled
-
-        // Replay Button
+        // Replay button
         GameObject replayButtonObject = contentGameObject.GetNamedChild("Replay Button")
             .GetNamedChild("Text Poke Button");
         replayButton = replayButtonObject.GetComponent<Button>();
 
         replayButton.onClick.AddListener(() =>
         {
-            if (lastTrajectory != null)
+            if (selectedRobotIndex == -1)
             {
-                StartCoroutine(playTrajectory(lastTrajectory));
+                foreach (var traj in lastTrajectories.Values)
+                {
+                    StartCoroutine(playTrajectory(traj));
+                }
+            }
+            else
+            {
+                if (lastTrajectories.ContainsKey(selectedRobotIndex))
+                {
+                    StartCoroutine(playTrajectory(lastTrajectories[selectedRobotIndex]));
+                }
             }
         });
 
-        // Record button functionality
+        // Record button functionality.
         recordButton.onClick.AddListener(() =>
         {
             if (recordROS == true)
             {
-                // Stop recording
+                // Stop recording and package the trajectory for each robot.
                 recordROS = false;
                 recordButtonText.text = "Start Recording";
-                saveJointPositionMessage();
-
-                // Enable the send button since we have a trajectory to send
-                sendButton.interactable = true;
-
-                // Let the planner know that interaction is done ||||||||| as the sending logic is now on the send button, don't know if i should do this anymore
+                if (selectedRobotIndex == -1)
+                {
+                    for (int i = 0; i < robots.Count; i++)
+                    {
+                        JointTrajectoryMsg trajectory = new JointTrajectoryMsg();
+                        HeaderMsg header = new HeaderMsg
+                        {
+                            frame_id = robots[i].robotObject.name,
+                            stamp = new TimeMsg
+                            {
+                                sec = (int)Time.time,
+                                nanosec = (uint)((Time.time - (int)Time.time) * 1e9)
+                            }
+                        };
+                        trajectory.header = header;
+                        trajectory.joint_names = robots[i].jointNames.ToArray();
+                        trajectory.points = jointTrajectoryPointsDict.ContainsKey(i) ? jointTrajectoryPointsDict[i].ToArray() : new JointTrajectoryPointMsg[0];
+                        lastTrajectories[i] = trajectory;
+                    }
+                    sendButton.interactable = true;
+                }
+                else
+                {
+                    var robot = robots[selectedRobotIndex];
+                    JointTrajectoryMsg trajectory = new JointTrajectoryMsg();
+                    HeaderMsg header = new HeaderMsg
+                    {
+                        frame_id = robot.robotObject.name,
+                        stamp = new TimeMsg
+                        {
+                            sec = (int)Time.time,
+                            nanosec = (uint)((Time.time - (int)Time.time) * 1e9)
+                        }
+                    };
+                    trajectory.header = header;
+                    trajectory.joint_names = robot.jointNames.ToArray();
+                    trajectory.points = jointTrajectoryPointsDict.ContainsKey(selectedRobotIndex) ? jointTrajectoryPointsDict[selectedRobotIndex].ToArray() : new JointTrajectoryPointMsg[0];
+                    lastTrajectories[selectedRobotIndex] = trajectory;
+                    sendButton.interactable = true;
+                }
                 sendInteractionMessage(false);
             }
             else
             {
-                // Start recording
+                // Start recording.
                 recordROS = true;
                 recordButtonText.text = "Stop Recording";
-                sendButton.interactable = false; // Disable send button while recording
-                resetJointPositionMessage(); // Reset any previous recording data
-                lastTrajectory = null; // Clear previous trajectory
-
-                // Let the planner know that interaction is starting
+                sendButton.interactable = false;
+                if (selectedRobotIndex == -1)
+                {
+                    for (int i = 0; i < robots.Count; i++)
+                    {
+                        jointTrajectoryPointsDict[i] = new List<JointTrajectoryPointMsg>();
+                        recordStartTimes[i] = Time.time;
+                    }
+                }
+                else
+                {
+                    jointTrajectoryPointsDict[selectedRobotIndex] = new List<JointTrajectoryPointMsg>();
+                    recordStartTimes[selectedRobotIndex] = Time.time;
+                    if(lastTrajectories.ContainsKey(selectedRobotIndex))
+                        lastTrajectories.Remove(selectedRobotIndex);
+                }
                 sendInteractionMessage(true);
                 mirrorButton.onClick.Invoke();
+            }
+        });
+        recordButton.interactable = true;
 
+        // Joint selection dropdown and slider.
+        jointDropdown = contentGameObject.GetNamedChild("List Item Dropdown")
+            .GetNamedChild("Dropdown")
+            .GetComponent<TMP_Dropdown>();
+        jointSlider = contentGameObject.GetNamedChild("List Item Slider")
+            .GetNamedChild("MinMax Slider")
+            .GetComponent<Slider>();
+        jointSliderText = jointSlider.gameObject.GetNamedChild("Value Text")
+            .GetComponent<TextMeshProUGUI>();
+
+        // Initialize joint dropdown based on the currently selected robot.
+        if (selectedRobotIndex != -1)
+        {
+            jointDropdown.ClearOptions();
+            jointDropdown.AddOptions(robots[selectedRobotIndex].jointNames);
+            int jointIndex = jointDropdown.value;
+            float angle = robots[selectedRobotIndex].manager.GetJointAngle(jointIndex);
+            jointSlider.value = angle;
+            jointSlider.minValue = robots[selectedRobotIndex].jointLimits[jointIndex].Item1;
+            jointSlider.maxValue = robots[selectedRobotIndex].jointLimits[jointIndex].Item2;
+        }
+        else
+        {
+            // When "All Robots" is selected, disable joint controls.
+            jointDropdown.interactable = false;
+            jointSlider.interactable = false;
+        }
+
+        jointDropdown.onValueChanged.AddListener(delegate {
+            int jointIndex = jointDropdown.value;
+            if (selectedRobotIndex != -1)
+            {
+                float angle = robots[selectedRobotIndex].manager.GetJointAngle(jointIndex);
+                jointSlider.value = angle;
+                jointSlider.minValue = robots[selectedRobotIndex].jointLimits[jointIndex].Item1;
+                jointSlider.maxValue = robots[selectedRobotIndex].jointLimits[jointIndex].Item2;
             }
         });
 
-        recordButton.interactable = true;
-
-        // Dropdown and slider
-        TMP_Dropdown dropdown = contentGameObject.GetNamedChild("List Item Dropdown")
-            .GetNamedChild("Dropdown")
-            .GetComponent<TMP_Dropdown>();
-        Slider slider = contentGameObject.GetNamedChild("List Item Slider")
-            .GetNamedChild("MinMax Slider")
-            .GetComponent<Slider>();
-        TextMeshProUGUI sliderText = slider.gameObject
-            .GetNamedChild("Value Text")
-            .GetComponent<TextMeshProUGUI>();
-
-        // Populate the dropdown with the joint names
-        dropdown.AddOptions(jointNames);
-
-        RobotManager robotManager = robotModels[0].GetComponent<RobotManager>();
-        int dropdownIndex = 0;
-        slider.value = robotManager.GetJointAngle(dropdownIndex);
-        sliderText.text = (-slider.value).ToString();
-        slider.minValue = jointLimits[dropdownIndex].Item1;
-        slider.maxValue = jointLimits[dropdownIndex].Item2;
-
-        dropdown.onValueChanged.AddListener(delegate
-        {
-            dropdownIndex = dropdown.value;
-
-            slider.value = robotManager.GetJointAngle(dropdownIndex);
-            slider.minValue = jointLimits[dropdownIndex].Item1;
-            slider.maxValue = jointLimits[dropdownIndex].Item2;
+        jointSlider.onValueChanged.AddListener(delegate {
+            int jointIndex = jointDropdown.value;
+            if (selectedRobotIndex != -1)
+            {
+                robots[selectedRobotIndex].manager.SetJointAngle(jointIndex, jointSlider.value);
+                jointSliderText.text = (-jointSlider.value).ToString();
+            }
         });
 
-        slider.onValueChanged.AddListener(delegate
-        {
-            robotManager.SetJointAngle(dropdownIndex, slider.value);
-            sliderText.text = (-slider.value).ToString();
+        // When the user changes the robot selection...
+        robotDropdown.onValueChanged.AddListener(delegate {
+            if (robotDropdown.value == 0)
+            {
+                selectedRobotIndex = -1;
+                jointDropdown.interactable = false;
+                jointSlider.interactable = false;
+            }
+            else
+            {
+                selectedRobotIndex = robotDropdown.value - 1;
+                jointDropdown.interactable = true;
+                jointSlider.interactable = true;
+                // Refresh joint dropdown options.
+                jointDropdown.ClearOptions();
+                jointDropdown.AddOptions(robots[selectedRobotIndex].jointNames);
+                int jointIndex = jointDropdown.value;
+                float angle = robots[selectedRobotIndex].manager.GetJointAngle(jointIndex);
+                jointSlider.value = angle;
+                jointSlider.minValue = robots[selectedRobotIndex].jointLimits[jointIndex].Item1;
+                jointSlider.maxValue = robots[selectedRobotIndex].jointLimits[jointIndex].Item2;
+            }
         });
 
+        // Set up periodic recording and state publishing.
         InvokeRepeating("addJointPosition", 1.0f, recordInterval);
+        InvokeRepeating("PublishState", 1.0f, publishStateInterval);
 
-        // Load the query interface
-        contentGameObject = menuUI.GetNamedChild("Spatial Panel Scroll")
-            .GetNamedChild("Query Scroll View")
-            .GetNamedChild("Viewport")
-            .GetNamedChild("Content");
-
-        startButtonObject = contentGameObject.GetNamedChild("Set Start Button")
-            .GetNamedChild("Text Poke Button");
-        Button startButton = startButtonObject.GetComponent<Button>();
-        TextMeshProUGUI startButtonText = startButtonObject
-            .GetNamedChild("Button Front")
-            .GetNamedChild("Text (TMP) ")
-            .GetComponent<TextMeshProUGUI>();
-
-        startButton.onClick.AddListener(() =>
-        {
-            setStart();
-            startButtonText.text = "Start is Set!";
-        });
-
-        goalButtonObject = contentGameObject.GetNamedChild("Set Goal Button")
-            .GetNamedChild("Text Poke Button");
-        Button goalButton = goalButtonObject.GetComponent<Button>();
-        TextMeshProUGUI goalButtonText = goalButtonObject
-            .GetNamedChild("Button Front")
-            .GetNamedChild("Text (TMP) ")
-            .GetComponent<TextMeshProUGUI>();
-
-        goalButton.onClick.AddListener(() =>
-        {
-            setGoal();
-            goalButtonText.text = "Goal is Set!";
-        });
-
-        queryButtonObject = contentGameObject.GetNamedChild("Send Query Button")
-            .GetNamedChild("Text Poke Button");
-        Button queryButton = queryButtonObject.GetComponent<Button>();
-        TextMeshProUGUI queryButtonText = queryButtonObject
-            .GetNamedChild("Button Front")
-            .GetNamedChild("Text (TMP) ")
-            .GetComponent<TextMeshProUGUI>();
-
-        queryButton.onClick.AddListener(() =>
-        {
-            sendQueryMessage();
-            queryButtonText.text = "Query Sent!";
-        });
-
-        // Disable the query button until both start and goal are set
-        queryButton.interactable = false;
-
-        // Load the mirror interface
+        // Mirror interface.
         contentGameObject = menuUI.GetNamedChild("Spatial Panel Scroll")
             .GetNamedChild("Mirror Scroll View")
             .GetNamedChild("Viewport")
             .GetNamedChild("Content");
 
-        // Mirror input button
         mirrorButtonObject = contentGameObject.GetNamedChild("Mirror Input Button")
             .GetNamedChild("Text Poke Button");
         mirrorButton = mirrorButtonObject.GetComponent<Button>();
@@ -457,7 +497,6 @@ public class SetupUI : MonoBehaviour
             }
         });
 
-        // Publish state button
         publishStateButtonObject = contentGameObject.GetNamedChild("Publish State Button")
             .GetNamedChild("Text Poke Button");
         Button publishStateButton = publishStateButtonObject.GetComponent<Button>();
@@ -481,9 +520,7 @@ public class SetupUI : MonoBehaviour
             }
         });
 
-        InvokeRepeating("PublishState", 1.0f, publishStateInterval);
-
-        // Set Home and Go Home buttons
+        // Set Home and Go Home buttons.
         setHomeButtonObject = contentGameObject.GetNamedChild("Set Home Button")
             .GetNamedChild("Text Poke Button");
         Button setHomeButton = setHomeButtonObject.GetComponent<Button>();
@@ -495,7 +532,17 @@ public class SetupUI : MonoBehaviour
         setHomeButton.onClick.AddListener(() =>
         {
             Debug.Log("setHomeButton.onClick");
-            robotManager.SetHomePosition();
+            if (selectedRobotIndex == -1)
+            {
+                foreach (var robot in robots)
+                {
+                    robot.manager.SetHomePosition();
+                }
+            }
+            else
+            {
+                robots[selectedRobotIndex].manager.SetHomePosition();
+            }
         });
 
         goHomeButtonObject = contentGameObject.GetNamedChild("Reset to Home Button")
@@ -509,142 +556,150 @@ public class SetupUI : MonoBehaviour
         goHomeButton.onClick.AddListener(() =>
         {
             Debug.Log("goHomeButton.onClick");
-            robotManager.ResetHomePosition();
+            if (selectedRobotIndex == -1)
+            {
+                foreach (var robot in robots)
+                {
+                    robot.manager.ResetHomePosition();
+                }
+            }
+            else
+            {
+                robots[selectedRobotIndex].manager.ResetHomePosition();
+            }
         });
     }
 
+    // Records joint positions over time for the selected robot or for all robots.
     void addJointPosition()
     {
         if (recordROS)
         {
-            RobotManager robotManager = robotModels[0].GetComponent<RobotManager>();
-
-            if (recordStartTime == 0f)
+            if (selectedRobotIndex == -1)
             {
-                recordStartTime = Time.time;
+                for (int i = 0; i < robots.Count; i++)
+                {
+                    if (!recordStartTimes.ContainsKey(i))
+                        recordStartTimes[i] = Time.time;
+                    if (!jointTrajectoryPointsDict.ContainsKey(i))
+                        jointTrajectoryPointsDict[i] = new List<JointTrajectoryPointMsg>();
+                    float[] jointPositions = robots[i].manager.GetJointAngles();
+                    List<double> robotTorques = new List<double>();
+                    for (int j = 0; j < jointPositions.Length; j++)
+                    {
+                        float torque = CalculateTorqueForRobot(robots[i], j, jointPositions[j] * Mathf.Deg2Rad);
+                        robotTorques.Add(torque);
+                    }
+                    float timeFromStart = Time.time - recordStartTimes[i];
+                    int secs = (int)Math.Floor(timeFromStart);
+                    uint nsecs = (uint)((timeFromStart - secs) * 1e9);
+                    JointTrajectoryPointMsg point = new JointTrajectoryPointMsg
+                    {
+                        positions = Array.ConvertAll(jointPositions, item => (double)item),
+                        effort = robotTorques.ToArray(),
+                        time_from_start = new DurationMsg(secs, nsecs),
+                    };
+                    jointTrajectoryPointsDict[i].Add(point);
+                }
             }
-
-            float[] jointPositions = robotManager.GetJointAngles();
-            jointTorques = new List<double>();
-            for (int i = 0; i < jointPositions.Length; i++) 
+            else
             {
-                // Get the torque from the knob
-                float torque = CalculateTorque(i, jointPositions[i] * Mathf.Deg2Rad);
-                jointTorques.Add(torque);
+                int i = selectedRobotIndex;
+                if (!recordStartTimes.ContainsKey(i))
+                    recordStartTimes[i] = Time.time;
+                if (!jointTrajectoryPointsDict.ContainsKey(i))
+                    jointTrajectoryPointsDict[i] = new List<JointTrajectoryPointMsg>();
+                float[] jointPositions = robots[i].manager.GetJointAngles();
+                List<double> robotTorques = new List<double>();
+                for (int j = 0; j < jointPositions.Length; j++)
+                {
+                    float torque = CalculateTorqueForRobot(robots[i], j, jointPositions[j] * Mathf.Deg2Rad);
+                    robotTorques.Add(torque);
+                }
+                float timeFromStart = Time.time - recordStartTimes[i];
+                int secs = (int)Math.Floor(timeFromStart);
+                uint nsecs = (uint)((timeFromStart - secs) * 1e9);
+                JointTrajectoryPointMsg point = new JointTrajectoryPointMsg
+                {
+                    positions = Array.ConvertAll(jointPositions, item => (double)item),
+                    effort = robotTorques.ToArray(),
+                    time_from_start = new DurationMsg(secs, nsecs),
+                };
+                jointTrajectoryPointsDict[i].Add(point);
             }
-
-            // Calculate the precise time from start
-            float timeFromStart = Time.time - recordStartTime;
-            int secs = (int)Math.Floor(timeFromStart);
-            uint nsecs = (uint)((timeFromStart - secs) * 1e9);
-
-            JointTrajectoryPointMsg jointTrajectoryPoint = new JointTrajectoryPointMsg
-            {
-                positions = Array.ConvertAll(jointPositions, item => (double)item),
-                effort = jointTorques.ToArray(),
-                time_from_start = new DurationMsg(secs, nsecs),
-            };
-            jointTrajectoryPoints.Add(jointTrajectoryPoint);
         }
-    }
-
-    float CalculateTorque(int i, float currentAngle)
-    {
-        float previousAngle = previousAngles[i];
-        float deltaAngle = Mathf.DeltaAngle(previousAngle, currentAngle);
-        float angularVelocity = deltaAngle / Time.deltaTime;
-        float torque = momentsOfInertia[i] * angularVelocity;
-        previousAngles[i] = currentAngle;
-        return torque;
-    }
-    
-    void saveJointPositionMessage()
-    {
-        JointTrajectoryMsg jointTrajectory = new JointTrajectoryMsg();
-
-        HeaderMsg header = new HeaderMsg
-        {
-            frame_id = gameObject.name,
-            stamp = new TimeMsg
-            {
-                sec = (int)Time.time,
-                nanosec = (uint)((Time.time - (int)Time.time) * 1e9)
-            }
-        };
-        jointTrajectory.header = header;
-        jointTrajectory.joint_names = jointNames.ToArray();
-        jointTrajectory.points = jointTrajectoryPoints.ToArray();
-
-        lastTrajectory = jointTrajectory;
     }
 
     void sendJointPositionMessage(JointTrajectoryMsg jointTrajectory)
     {
         ros.Publish(trajTopicName, jointTrajectory);
         trajectoryLog.Add(jointTrajectory);
-
-        // Clear the jointTrajectoryPoints list
-        resetJointPositionMessage();
-
-        // Let the planner know that interaction is done
         sendInteractionMessage(false);
     }
 
-    void resetJointPositionMessage()
+    // Replay coroutine (unchanged aside from using the selected robot’s joint names when needed).
+    IEnumerator playTrajectory(JointTrajectoryMsg trajectory)
     {
-        jointTrajectoryPoints.Clear();
-        recordStartTime = 0;
-    }
-
-    IEnumerator playTrajectory(JointTrajectoryMsg trajectory) {
         JointTrajectoryPointMsg[] points = trajectory.points;
         double prevTime = durationToDouble(points[0].time_from_start);
-
- 
         double[] prevPos = new double[points[0].positions.Length];
-        for (int i = 0; i < prevPos.Length; i++) {
+        for (int i = 0; i < prevPos.Length; i++)
             prevPos[i] = -1 * (points[0].positions[i] * Mathf.Rad2Deg);
-        }
-
-        for (int i = 1; i < points.Length; i++) {
+        for (int i = 1; i < points.Length; i++)
+        {
             double[] positions = points[i].positions;
-
-  
             double[] modifiedPositions = new double[positions.Length];
-            for (int j = 0; j < positions.Length; j++) {
+            for (int j = 0; j < positions.Length; j++)
                 modifiedPositions[j] = -1 * (positions[j] * Mathf.Rad2Deg);
-            }
-
             double currTime = durationToDouble(points[i].time_from_start);
             double movingTime = currTime - prevTime;
-
-            if (positions.Length != jointNames.Count) {
+            if (positions.Length != (selectedRobotIndex == -1 ? robots[0].jointNames.Count : robots[selectedRobotIndex].jointNames.Count))
+            {
                 Debug.LogError("Positions array length does not match knobs count.");
                 yield break;
             }
-
             yield return StartCoroutine(MoveKnobsOverTime(prevPos, modifiedPositions, movingTime));
-
             prevPos = modifiedPositions;
             prevTime = currTime;
         }
     }
 
-    IEnumerator MoveKnobsOverTime(double[] startPositions, double[] endPositions, double duration) {
+    IEnumerator MoveKnobsOverTime(double[] startPositions, double[] endPositions, double duration)
+    {
         float elapsedTime = 0f;
-
-        if (duration <= 0f) duration = 0.000001f; 
-
-        RobotManager robotManager = robotModels[0].GetComponent<RobotManager>();
-        while (elapsedTime < duration) {
-            elapsedTime += Time.deltaTime;
-            float t = Mathf.Clamp01((float)(elapsedTime / duration)); // scaling to 0-1 range
-
-            for (int j = 0; j < jointNames.Count; j++) {
-                float newPos = Mathf.Lerp((float)startPositions[j], (float)endPositions[j], t);
-                robotManager.SetJointAngle(j, newPos);
+        if (duration <= 0f) duration = 0.000001f;
+        if (selectedRobotIndex == -1)
+        {
+            // Update all robots.
+            while (elapsedTime < duration)
+            {
+                elapsedTime += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsedTime / (float)duration);
+                for (int j = 0; j < robots[0].jointNames.Count; j++)
+                {
+                    float newPos = Mathf.Lerp((float)startPositions[j], (float)endPositions[j], t);
+                    foreach (var robot in robots)
+                    {
+                        robot.manager.SetJointAngle(j, newPos);
+                    }
+                }
+                yield return null;
             }
-            yield return null;
+        }
+        else
+        {
+            RobotManager robotManager = robots[selectedRobotIndex].manager;
+            while (elapsedTime < duration)
+            {
+                elapsedTime += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsedTime / (float)duration);
+                for (int j = 0; j < robots[selectedRobotIndex].jointNames.Count; j++)
+                {
+                    float newPos = Mathf.Lerp((float)startPositions[j], (float)endPositions[j], t);
+                    robotManager.SetJointAngle(j, newPos);
+                }
+                yield return null;
+            }
         }
     }
 
@@ -653,7 +708,6 @@ public class SetupUI : MonoBehaviour
         return duration.sec + (duration.nanosec * 0.000000001);
     }
 
-
     void resetTrajectoryLog()
     {
         trajectoryLog.Clear();
@@ -661,19 +715,15 @@ public class SetupUI : MonoBehaviour
 
     private void SimulateRecordButtonClick(InputAction.CallbackContext context)
     {
-
         recordButton.onClick.Invoke();
     }
     private void SimulateReplayButtonClick(InputAction.CallbackContext context)
     {
-
         replayButton.onClick.Invoke();
-
     }
     private void SimulateMirrorButtonClick(InputAction.CallbackContext context)
     {
-
         mirrorButton.onClick.Invoke();
-
     }
+
 }
