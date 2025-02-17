@@ -57,16 +57,16 @@ public class CCDIKJoint : MonoBehaviour
         return direction;
     }
 
-    public void Evaluate(Transform ToolTip, Transform Target, bool rotateToDirection = false) {
+    public void Evaluate(Transform ToolTip, Quaternion targetRotation, Vector3 targetPosition, bool rotateToDirection = false) {
         prevAngle = transform.localEulerAngles.y;
 
-        //Rotate the assembly so the tooltip better matches the target position/direction
-        transform.rotation = (rotateToDirection ? Quaternion.FromToRotation(ToolTip.up, Target.forward) : Quaternion.FromToRotation(ToolTip.position - transform.position, Target.position - transform.position)) * transform.rotation;
+        // Rotate the assembly so the tooltip better matches the target position/direction
+        transform.rotation = (rotateToDirection ? Quaternion.FromToRotation(ToolTip.up, targetRotation * Vector3.forward) : Quaternion.FromToRotation(ToolTip.position - transform.position, targetPosition - transform.position)) * transform.rotation;
 
-        //Enforce only rotating with the hinge
+        // Enforce only rotating with the hinge
         transform.rotation = Quaternion.FromToRotation(transform.rotation * axis, transform.parent.rotation * axis) * transform.rotation;
-        
-        //Enforce Joint Limits
+
+        // Enforce Joint Limits
         transform.rotation = Quaternion.FromToRotation(transform.rotation * perpendicular, ConstrainToNormal(transform.rotation * perpendicular, transform.parent.rotation * perpendicular, maxAngle)) * transform.rotation;
 
         // Align the rotation with the original orientation of the joint
