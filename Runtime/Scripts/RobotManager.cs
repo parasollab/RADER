@@ -16,13 +16,16 @@ public class RobotManager : MonoBehaviour
     public ColorAffordanceThemeDatumProperty affordanceThemeDatum;
     public bool grabBase = false;
 
-    private ProcessUrdf processUrdf = new ProcessUrdf();
-    private ProcessUrdf gripperProcessUrdf = new ProcessUrdf();
+    private ProcessUrdf processUrdf;
+    private ProcessUrdf gripperProcessUrdf;
 
-    // Start is called before the first frame update
     [Obsolete]
     void Awake()
     {
+        // Correctly instantiate the ProcessUrdf components
+        processUrdf = gameObject.AddComponent<ProcessUrdf>();
+        gripperProcessUrdf = gameObject.AddComponent<ProcessUrdf>();
+
         processUrdf.ProcessModel(urdfModel, affordanceThemeDatum, ikSolver);
 
         if (gripper != null)
@@ -64,8 +67,18 @@ public class RobotManager : MonoBehaviour
         return processUrdf.LastLink.transform;
     }
 
-    public float[] GetJointAngles()
+    public float[] GetJointAngles(bool includeGripper=false)
     {
+        if (includeGripper)
+        {
+            float[] armJointAngles = processUrdf.GetComponent<SetupIK>().GetJointAngles();
+            float[] gripperJointAngles = gripperProcessUrdf.GetComponent<SetupIK>().GetJointAngles();
+            float[] jointAngles = new float[armJointAngles.Length + gripperJointAngles.Length];
+            armJointAngles.CopyTo(jointAngles, 0);
+            gripperJointAngles.CopyTo(jointAngles, armJointAngles.Length);
+            return jointAngles;
+        }
+
         return urdfModel.GetComponent<SetupIK>().GetJointAngles();
     }
 
@@ -84,16 +97,33 @@ public class RobotManager : MonoBehaviour
         urdfModel.GetComponent<SetupIK>().SetJointAngle(jointIndex, jointAngle);
     }
 
-    public List<string> GetJointNames()
+    public List<string> GetJointNames(bool includeGripper=false)
     {
+        if (includeGripper)
+        {
+            List<string> jointNames = new List<string>();
+            jointNames.AddRange(processUrdf.GetJointNames());
+            jointNames.AddRange(gripperProcessUrdf.GetJointNames());
+            return jointNames;
+        }
+
         return processUrdf.GetJointNames();
     }
 
-    public List<Tuple<float, float>> GetJointLimits()
+    public List<Tuple<float, float>> GetJointLimits(bool includeGripper=false)
     {
+        if (includeGripper)
+        {
+            List<Tuple<float, float>> jointLimits = new List<Tuple<float, float>>();
+            jointLimits.AddRange(processUrdf.GetJointLimits());
+            jointLimits.AddRange(gripperProcessUrdf.GetJointLimits());
+            return jointLimits;
+        }
+
         return processUrdf.GetJointLimits();
     }
 
+    // TODO: include gripper in these?
     public void SetHomePosition()
     {
         processUrdf.SetHomePosition();
@@ -104,9 +134,24 @@ public class RobotManager : MonoBehaviour
         processUrdf.ResetHomePosition();
     }
 
+    public List<string> GetGripperJointNames()
+    {
+        return gripperProcessUrdf.GetJointNames();
+    }
+
     public void SetGripperByJointName(string jointName, float jointAngle, bool ignoreNotFound=true)
     {
         gripper.GetComponent<SetupIK>().SetJointAngle(jointName, jointAngle, ignoreNotFound);
+    }
+
+    public void GetzGripperJointAngles()
+    {
+        gripper.GetComponent<SetupIK>().GetJointAngles();
+    }
+
+    public void GetGripperJointAngle(string jointName)
+    {
+        gripper.GetComponent<SetupIK>().GetJointAngle(jointName);
     }
 
     private void AddGripper(GameObject gripper, GameObject lastLink)

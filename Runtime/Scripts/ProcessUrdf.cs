@@ -127,18 +127,14 @@ public class ProcessUrdf : MonoBehaviour
                     // Add the mimic joint offset and multiplier to the respective dictionaries
                     mimicJointOffsetMap[obj.name] = urdfJointRevolute.mimicOffset;
                     mimicJointMultiplierMap[obj.name] = urdfJointRevolute.mimicMultiplier;
-
-                    // Print the mimic joint data
-                    Debug.Log("Mimic joint: " + obj.name + " " + urdfJointRevolute.mimicJointName + " " + urdfJointRevolute.mimicOffset + " " + urdfJointRevolute.mimicMultiplier);
-                }
-                else
-                {
-                    Debug.Log("Not a mimic joint: " + obj.name);
                 }
             }
             
             // Do not delete scripts of type RobotManager
             if (script.GetType().Name == "RobotManager") continue;
+
+            // Do not delete scripts of type ProcessUrdf
+            if (script.GetType().Name == "ProcessUrdf") continue;
 
             // Do not delete scripts that inherit from IKSolver
             if (script.GetType().IsSubclassOf(typeof(IKSolver))) continue;

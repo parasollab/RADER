@@ -20,6 +20,7 @@ public class SetupUI : MonoBehaviour
     public string inputStateTopicName = "/joint_states";
     public string outputStateTopicName = "/virtual_joint_state";
     public string interactionTopicName = "/interaction";
+    public string recordStartTopicName = "/record_start";
     public float recordInterval = 0.1f;
     public float publishStateInterval = 0.2f;
 
@@ -78,14 +79,15 @@ public class SetupUI : MonoBehaviour
         // Build our robot data list from robotModels.
         foreach (GameObject robot in robotModels)
         {
+            Debug.Log(robot.name);
             RobotManager manager = robot.GetComponent<RobotManager>();
             RobotInfo info = new RobotInfo();
             info.robotObject = robot;
             info.manager = manager;
-            info.jointNames = new List<string>(manager.GetJointNames());
-            info.jointLimits = new List<Tuple<float, float>>(manager.GetJointLimits());
+            info.jointNames = new List<string>(manager.GetJointNames(true));
+            info.jointLimits = new List<Tuple<float, float>>(manager.GetJointLimits(true));
             // Initialize per-joint data.
-            float[] jointAngles = manager.GetJointAngles();
+            float[] jointAngles = manager.GetJointAngles(true);
             for (int i = 0; i < jointAngles.Length; i++)
             {
                 info.previousAngles[i] = jointAngles[i];
@@ -421,6 +423,13 @@ public class SetupUI : MonoBehaviour
             }
         });
         recordButton.interactable = true;
+
+        // Create a subscriber for the record start topic.
+        ros.Subscribe<BoolMsg>(recordStartTopicName, (msg) =>
+        {
+            Debug.Log("Received record start message");
+            recordButton.onClick.Invoke();
+        });
 
         // Joint selection dropdown and slider.
         jointDropdown = contentGameObject.GetNamedChild("List Item Dropdown")

@@ -170,6 +170,18 @@ public class SetupIK : MonoBehaviour
         return xrKnobs[jointIndex].jointAngle;
     }
 
+    public float GetJointAngle(string jointName)
+    {
+        try {
+            int jointIndex = nameToNumber.Find(x => x.Item1 == jointName).Item2;
+            return GetJointAngle(jointIndex);
+        } catch (Exception)
+        {
+            Debug.LogError("Joint not found: " + jointName);
+            return 0;
+        }
+    }
+
     /// <summary>
     /// Ensures we get a delta in [-180, 180].
     /// </summary>
