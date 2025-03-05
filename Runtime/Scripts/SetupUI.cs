@@ -388,6 +388,7 @@ public class SetupUI : MonoBehaviour
                     sendInteractionMessage(robots[selectedRobotIndex], true);
                 }
                 mirrorButton.onClick.Invoke();
+                CancelInvoke("addJointPosition");
             }
             else
             {
@@ -420,6 +421,7 @@ public class SetupUI : MonoBehaviour
                     sendInteractionMessage(robots[selectedRobotIndex], false);
                 }
                 mirrorButton.onClick.Invoke();
+                InvokeRepeating("addJointPosition", 0.0f, recordInterval);
             }
         });
         recordButton.interactable = true;
@@ -497,8 +499,8 @@ public class SetupUI : MonoBehaviour
             }
         });
 
-        // Set up periodic recording and state publishing.
-        InvokeRepeating("addJointPosition", 1.0f, recordInterval);
+        // Set up periodic state publishing.
+        // InvokeRepeating("addJointPosition", 1.0f, recordInterval);
         InvokeRepeating("PublishState", 1.0f, publishStateInterval);
 
         // Mirror interface.
