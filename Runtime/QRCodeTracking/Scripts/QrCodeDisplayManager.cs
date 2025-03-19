@@ -14,6 +14,16 @@ public class QrCodeDisplayManager : MonoBehaviour
     private readonly Dictionary<string, MarkerController> _activeMarkers = new();
     private PassthroughCameraEye _passthroughCameraEye;
 
+    public MarkerController GetFirstMarker()
+    {
+        foreach (var kvp in _activeMarkers)
+        {
+            return kvp.Value;
+        }
+
+        return null;
+    }
+
     private void Awake()
     {
         _passthroughCameraEye = passthroughCameraManager.Eye;
