@@ -5,7 +5,7 @@ using UnityEngine.XR.ARFoundation;
 public class QrCodeRobotPlacement : MonoBehaviour
 {
     [SerializeField] private QrCodeDisplayManager _qrCodeDisplayManager;
-    [SerializeField] private ARPlaneManager _arPlaneManager;
+    [SerializeField] private ARPlaneManager _arPlaneManager; // Is this needed?
     [SerializeField] private InputActionReference _setRobotPositionAction;
     [SerializeField] private GameObject _leftRobot;
     [SerializeField] private GameObject _rightRobot;
@@ -68,37 +68,64 @@ public class QrCodeRobotPlacement : MonoBehaviour
             return;
         }
 
-        // Find the closest plane to the marker
-        // ARPlane closestPlane = null;
-        // float closestDistance = float.MaxValue;
-        // foreach (var plane in _arPlaneManager.trackables)
-        // {
-        //     var distance = Vector3.Distance(marker.transform.position, plane.transform.position);
-        //     if (distance < closestDistance)
-        //     {
-        //         closestPlane = plane;
-        //         closestDistance = distance;
-        //     }
-        // }
+        // Get the closest plane to the marker
+        var closestPlane = GetClosestPlane(marker.transform.position);
+        if (closestPlane == null)
+        {
+            return;
+        }
 
-        // Get the displacement between the robots
-        var displacement = _rightRobot.transform.position - _leftRobot.transform.position;
+        // Get the plane's normal and a reference point on the plane
+        Vector3 planeNormal = closestPlane.transform.up;
+        Vector3 planePoint = closestPlane.transform.position;
 
-        // Place the robots on the plane such that the marker is between them and the displacement is maintained
-        // Also rotate the robots so that their forward direction is the same as the marker's forward direction
-        // var markerForward = marker.transform.forward;
-        // var robotForward = _leftRobot.transform.forward;
-        // var angle = Vector3.SignedAngle(robotForward, markerForward, Vector3.up);
-        // _leftRobot.transform.Rotate(Vector3.up, angle);
-        // _rightRobot.transform.Rotate(Vector3.up, angle);
+        // Project the marker's position onto the plane
+        Vector3 markerPosition = marker.transform.position;
+        Vector3 projectedMarkerPosition = markerPosition - Vector3.Dot(markerPosition - planePoint, planeNormal) * planeNormal;
 
-        // Set the position of the robots such that the marker is between them and the displacement is maintained along the forward direction
-        var markerPosition = marker.transform.position;
-        var robotPosition = markerPosition - displacement / 2;
-        _leftRobot.transform.position = robotPosition;
-        _rightRobot.transform.position = robotPosition + displacement;
+        // Project the marker's right vector onto the plane to ensure it lies in the plane
+        Vector3 markerRight = marker.transform.right;
+        Vector3 projectedMarkerRight = Vector3.ProjectOnPlane(markerRight, planeNormal).normalized;
 
-        // _isRobotPlaced = true;
+        // Get the current distance between the robots
+        var currentLeftRobotPosition = _leftRobot.transform.position;
+        var currentRightRobotPosition = _rightRobot.transform.position;
+        var distanceBetweenRobots = Vector3.Distance(currentLeftRobotPosition, currentRightRobotPosition);
+        var halfDistanceBetweenRobots = distanceBetweenRobots / 2;
+
+        // Set the new positions so that the projected marker position is centered between them
+        var newLeftRobotPosition = projectedMarkerPosition - projectedMarkerRight * halfDistanceBetweenRobots;
+        var newRightRobotPosition = projectedMarkerPosition + projectedMarkerRight * halfDistanceBetweenRobots;
+
+        _leftRobot.transform.position = newLeftRobotPosition;
+        _rightRobot.transform.position = newRightRobotPosition;
+
+        // Update the robot rotations so that:
+        // - Their forward direction is aligned with the projected marker right (which is 90° from the marker's forward)
+        // - Their up vector aligns with the plane's normal
+        Quaternion newRotation = Quaternion.LookRotation(projectedMarkerRight, planeNormal);
+        _leftRobot.transform.rotation = newRotation;
+        _rightRobot.transform.rotation = newRotation;
+    }
+
+    private ARPlane GetClosestPlane(Vector3 position)
+    {
+        ARPlane closestPlane = null;
+        float closestDistance = float.MaxValue;
+
+        foreach (var plane in _arPlaneManager.trackables)
+        {
+            var planePosition = plane.transform.position;
+            var distance = Vector3.Distance(position, planePosition);
+
+            if (distance < closestDistance)
+            {
+                closestPlane = plane;
+                closestDistance = distance;
+            }
+        }
+
+        return closestPlane;
     }
 
     private void OnSetRobotPositionAction(InputAction.CallbackContext context)
