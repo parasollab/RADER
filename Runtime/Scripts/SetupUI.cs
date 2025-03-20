@@ -197,7 +197,7 @@ public class SetupUI : MonoBehaviour
             {
                 foreach (var robot in robots)
                 {
-                    float[] jointPositions = robot.manager.GetJointAngles();
+                    float[] jointPositions = robot.manager.GetJointAngles(true);
                     List<double> jointTorques = new List<double>();
                     for (int i = 0; i < jointPositions.Length; i++)
                     {
@@ -216,7 +216,7 @@ public class SetupUI : MonoBehaviour
             else
             {
                 var robot = robots[selectedRobotIndex];
-                float[] jointPositions = robot.manager.GetJointAngles();
+                float[] jointPositions = robot.manager.GetJointAngles(true);
                 List<double> jointTorques = new List<double>();
                 for (int i = 0; i < jointPositions.Length; i++)
                 {
@@ -609,7 +609,7 @@ public class SetupUI : MonoBehaviour
                         recordStartTimes[i] = Time.time;
                     if (!jointTrajectoryPointsDict.ContainsKey(i))
                         jointTrajectoryPointsDict[i] = new List<JointTrajectoryPointMsg>();
-                    float[] jointPositions = robots[i].manager.GetJointAngles();
+                    float[] jointPositions = robots[i].manager.GetJointAngles(true);
                     List<double> robotTorques = new List<double>();
                     for (int j = 0; j < jointPositions.Length; j++)
                     {
@@ -635,7 +635,7 @@ public class SetupUI : MonoBehaviour
                     recordStartTimes[i] = Time.time;
                 if (!jointTrajectoryPointsDict.ContainsKey(i))
                     jointTrajectoryPointsDict[i] = new List<JointTrajectoryPointMsg>();
-                float[] jointPositions = robots[i].manager.GetJointAngles();
+                float[] jointPositions = robots[i].manager.GetJointAngles(true);
                 List<double> robotTorques = new List<double>();
                 for (int j = 0; j < jointPositions.Length; j++)
                 {

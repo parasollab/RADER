@@ -69,7 +69,7 @@ public class RobotManager : MonoBehaviour
 
     public float[] GetJointAngles(bool includeGripper=false)
     {
-        if (includeGripper)
+        if (includeGripper && gripper != null)
         {
             float[] armJointAngles = processUrdf.GetComponent<SetupIK>().GetJointAngles();
             float[] gripperJointAngles = gripperProcessUrdf.GetComponent<SetupIK>().GetJointAngles();
