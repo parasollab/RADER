@@ -31,7 +31,7 @@ public class SetupIK : MonoBehaviour
             Debug.LogError("No IKJoint found in children, error in prefabSetup");
             return;
         }
-        setupIK();
+        setupIK(); 
     }
 
 
@@ -84,42 +84,45 @@ public class SetupIK : MonoBehaviour
         }
     }
 
-    public void SetJointAngle(int jointIndex, float jointAngle)
+    public void SetJointAngle(int jointIndex, float jointAngle) 
     {
-        if (xrKnobs != null && xrKnobs.Count == ikJoints.Count)
-        {
-            float oldAngle;
-            switch (xrKnobs[jointIndex].rotationAxis)
-            {
-                case KnobAxis.X:
-                    oldAngle = ikJoints[jointIndex].transform.localEulerAngles.x;
-                    break;
-                case KnobAxis.Y:
-                    oldAngle = ikJoints[jointIndex].transform.localEulerAngles.y;
-                    break;
-                case KnobAxis.Z:
-                    oldAngle = ikJoints[jointIndex].transform.localEulerAngles.z;
-                    break;
-                case KnobAxis.NegativeX:
-                    oldAngle = -ikJoints[jointIndex].transform.localEulerAngles.x;
-                    break;
-                case KnobAxis.NegativeY:
-                    oldAngle = -ikJoints[jointIndex].transform.localEulerAngles.y;
-                    break;
-                case KnobAxis.NegativeZ:
-                    oldAngle = -ikJoints[jointIndex].transform.localEulerAngles.z;
-                    break;
-                default:
-                    oldAngle = ikJoints[jointIndex].transform.localEulerAngles.y;
-                    break;
-            }
-            float diff = AngleDifference(oldAngle, jointAngle);
+        // if (xrKnobs != null && xrKnobs.Count == ikJoints.Count) // getting angles from articulation body, instead of transform.
+        // {
+        //     float oldAngle;
+        //     switch (xrKnobs[jointIndex].rotationAxis)
+        //     {
+        //         case KnobAxis.X:
+        //             oldAngle = xrKnobs[jointIndex].m_ArticulationBody.xDrive.target;
+        //             break;
+        //         case KnobAxis.Y:
+        //             oldAngle = xrKnobs[jointIndex].m_ArticulationBody.yDrive.target;
+        //             break;
+        //         case KnobAxis.Z:
+        //             oldAngle = xrKnobs[jointIndex].m_ArticulationBody.zDrive.target;
+        //             break;
+        //         case KnobAxis.NegativeX:
+        //             oldAngle = -xrKnobs[jointIndex].m_ArticulationBody.xDrive.target; 
+        //             break;
+        //         case KnobAxis.NegativeY:
+        //             oldAngle = -xrKnobs[jointIndex].m_ArticulationBody.yDrive.target;
+        //             break;
+        //         case KnobAxis.NegativeZ:
+        //             oldAngle = -xrKnobs[jointIndex].m_ArticulationBody.zDrive.target;
+        //             break;
+        //         default:
+        //             oldAngle = xrKnobs[jointIndex].m_ArticulationBody.yDrive.target;
+        //             break;
+        //     }
+        //     float diff = AngleDifference(oldAngle, jointAngle);
 
-            // Subtract the difference from the knob angle
-            xrKnobs[jointIndex].jointAngle -= diff;
-        } else {
-            Debug.LogError("Invalid number of angles or knobs");
-        }
+        //     // Subtract the difference from the knob angle
+        //     xrKnobs[jointIndex].jointAngle -= diff;
+        // } else {
+        //     Debug.LogError("Invalid number of angles or knobs"); // REVIEW; This logic is already implemented in the XRKnobAlt
+        // }
+        
+
+        xrKnobs[jointIndex].jointAngle= jointAngle;
     }
 
     public void SetJointAngle(string jointName, float jointAngle, bool ignoreNotFound=true)
@@ -135,7 +138,8 @@ public class SetupIK : MonoBehaviour
                 jointName = "KnobParent_" + jointName;
                 try {
                     int jointIndex = nameToNumber.Find(x => x.Item1 == jointName).Item2;
-                    SetJointAngle(jointIndex, jointAngle);
+                    // SetJointAngle(jointIndex, jointAngle);
+                    xrKnobs[jointIndex].jointAngle = jointAngle;
                 } catch (Exception)
                 {
                     Debug.LogError("Joint not found: " + jointName);

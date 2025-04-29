@@ -20,10 +20,10 @@ public class CCDIK : IKSolver {
         float[] angles = new float[joints.Length];
 
         for (int j = 0; j < joints.Length; j++)
-        {
+        { 
             joints[j].Evaluate(Tooltip, ori, pos, false);
             float diff = AngleDifference(joints[j].prevAngle, joints[j].transform.localEulerAngles.y);
-            knobs[j].jointAngle = knobs[j].jointAngle - diff;
+            knobs[j].jointAngle = knobs[j].jointAngle + diff; 
             angles[j] = knobs[j].jointAngle;
         }
 

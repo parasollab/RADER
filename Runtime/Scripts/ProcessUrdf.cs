@@ -36,6 +36,10 @@ public class ProcessUrdf : MonoBehaviour
     private Dictionary<string, double> mimicJointOffsetMap = new Dictionary<string, double>();
     private Dictionary<string, double> mimicJointMultiplierMap = new Dictionary<string, double>();
 
+    public float stiffness = 1000.0f; // REVIEW; these values are arbitrary, find accurate values;
+    public float damping = 100.0f;
+    public float forceLimit = 1000.0f;
+
     // Getter for the last link
     public GameObject LastLink
     {
@@ -91,7 +95,7 @@ public class ProcessUrdf : MonoBehaviour
             obj.name = name.Replace("link", "joint");
         }
         // Process the current object
-        RemoveAndModifyComponents(obj);
+        ModifyComponents(obj);
         
         // Recursively process each child
         foreach (Transform child in obj.transform)
@@ -100,7 +104,19 @@ public class ProcessUrdf : MonoBehaviour
         }
     }
 
-    void RemoveAndModifyComponents(GameObject obj)
+    KnobAxis FindAxis(ArticulationBody body){
+        if (body.xDrive.lowerLimit != 0 || body.xDrive.upperLimit != 0){
+            return KnobAxis.X;
+        }
+        else if (body.yDrive.lowerLimit != 0 || body.yDrive.upperLimit != 0){
+            return KnobAxis.Y;
+        }
+        else{
+            return KnobAxis.Z;
+        }
+    }
+
+    void ModifyComponents(GameObject obj) 
     {
         var scripts = new List<MonoBehaviour>(obj.GetComponents<MonoBehaviour>());
         bool fixedJoint = false;
@@ -130,19 +146,6 @@ public class ProcessUrdf : MonoBehaviour
                 }
             }
             
-            // Do not delete scripts of type RobotManager
-            if (script.GetType().Name == "RobotManager") continue;
-
-            // Do not delete scripts of type ProcessUrdf
-            if (script.GetType().Name == "ProcessUrdf") continue;
-
-            // Do not delete scripts that inherit from IKSolver
-            if (script.GetType().IsSubclassOf(typeof(IKSolver))) continue;
-
-            // Do not delete CollisionHaptics scripts
-            if (script.GetType().Name == "CollisionHaptics") continue;
-
-            DestroyImmediate(script); 
         }
 
         var articulationBody = obj.GetComponent<ArticulationBody>();
@@ -152,9 +155,6 @@ public class ProcessUrdf : MonoBehaviour
             bool isClampedMotion = articulationBody.xDrive.upperLimit - articulationBody.xDrive.lowerLimit < 360;
             // bool isClampedMotion = (articulationBody.xDrive.upperLimit != 0) && (articulationBody.xDrive.lowerLimit != 0);
             Tuple<float, float> jointLimit = new Tuple<float, float>(articulationBody.xDrive.lowerLimit, articulationBody.xDrive.upperLimit);
-            // Debug.LogAssertion("Joint " + obj.name + " has 0 range of motion, setting to 360");
-            // Debug.LogError("Joint " + obj.name + " upper limit: " + articulationBody.xDrive.upperLimit + " lower limit: " + articulationBody.xDrive.lowerLimit);
-            // Debug.LogError("Joint " + obj.name + " isClampedMotion: " + isClampedMotion);
 
 
             if (articulationBody.xDrive.upperLimit - articulationBody.xDrive.lowerLimit == 0 && articulationBody.jointType == ArticulationJointType.RevoluteJoint) {
@@ -162,15 +162,7 @@ public class ProcessUrdf : MonoBehaviour
                 isClampedMotion = false;
                 jointLimit = new Tuple<float, float>(0, 360);
             }
-            
-            DestroyImmediate(articulationBody);
 
-            // add rigidbody
-            var rb = obj.AddComponent<Rigidbody>();
-            rb.mass = 1.0f;
-            rb.useGravity = false;
-            rb.isKinematic = true;
-            // if fixedJoint we dont add XRGrabInteractable
             if(!fixedJoint)
             {
                 GameObject originalParent = obj.transform.parent.gameObject;
@@ -184,7 +176,7 @@ public class ProcessUrdf : MonoBehaviour
                 jointLimits.Add(jointLimit);
             }
 
-            if (grabJoint == null) {
+            if (grabJoint == null) { // REVIEW; not sure what this logic is for
                 MeshCollider meshCollider = obj.GetComponentInChildren<MeshCollider>();
                 if (meshCollider != null) {
                     grabJoint = obj;
@@ -212,22 +204,30 @@ public class ProcessUrdf : MonoBehaviour
             child.transform.parent = knobParent.transform;
 
             // zero out child's local position and rotation
-            // child.transform.localPosition = Vector3.zero;
-            // child.transform.localRotation = Quaternion.identity;
+            child.transform.localPosition = Vector3.zero;
+            child.transform.localRotation = Quaternion.identity;
 
-            // // Add IK components to the child, and add references to the list
+            // Add IK components to the child, and add references to the list
             CCDIKJoint ik = child.AddComponent<CCDIKJoint>();
             ik.axis = new Vector3(0, 1, 0);
 
             // // Add the XRKnobAlt
             XRKnobAlt knob = knobParent.AddComponent<XRKnobAlt>();
+            
+
+            // add the set body component
+            // SetBody setBody = knobParent.AddComponent<SetBody>(); // REVIEW; need to assign correct components here
+            ArticulationBody artBody = child.GetComponent<ArticulationBody>();
+            knob.m_ArticulationBody = artBody;
+
+            knob.rotationAxis = FindAxis(artBody);
+            
+
             knob.uniqueID = i;
             // knob.clampedMotion = clampedMotionList[i];
             knob.jointMinAngle = jointLimits[i].Item1;
             knob.jointMaxAngle = jointLimits[i].Item2;
             knob.rotationAxis = knobAxis;
-
-            // Debug.LogError("Parent " + knobParent.name + " Joint " + knob.name + " upper limit: " + knob.maxAngle + " lower limit: " + knob.minAngle);
 
 
             knob.handle = child.transform;
@@ -258,11 +258,18 @@ public class ProcessUrdf : MonoBehaviour
         jointNames.Reverse();
     }
 
+    public void setJoint(ArticulationBody body,float value){ // joint, value to set 
+        ArticulationDrive drive = body.xDrive;
+        drive.target = value;
+        body.xDrive = drive;
+    }
+
     public void SetHomePosition() // set current joint positions as home position
     {
         for (int i = 0; i < jointList.Count; i++)
         {
-            jointPositions[i] = jointList[i].transform.localRotation.eulerAngles.y;
+            jointPositions[i] = jointList[i].GetComponent<ArticulationBody>().xDrive.target;
+
         }
     }
 
@@ -270,7 +277,7 @@ public class ProcessUrdf : MonoBehaviour
     {
         for (int i = 0; i < jointList.Count; i++)
         {
-            jointList[i].transform.localRotation = Quaternion.Euler(0, (float)jointPositions[i], 0);
+            setJoint(jointList[i].GetComponent<ArticulationBody>(),(float) jointPositions[i]);
         }
     }
 

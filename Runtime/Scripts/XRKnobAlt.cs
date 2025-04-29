@@ -51,6 +51,10 @@ namespace Unity.VRTemplate
         [SerializeField]
         [Tooltip("Events to trigger when the knob is rotated")]
         public UnityEvent<float> m_OnValueChange = new UnityEvent<float>();
+
+        [SerializeField]
+        [Tooltip("Articulation body that this knob controls")]
+        public ArticulationBody m_ArticulationBody = null;
         
         UnityEngine.XR.Interaction.Toolkit.Interactors.IXRSelectInteractor m_Interactor;
         float m_Value = 0.0f;
@@ -69,13 +73,17 @@ namespace Unity.VRTemplate
 
         public float jointAngle
         {
-            get => m_Value;
+            get => m_Value; // value stores the joint angle, articulation body's xDrive is set by this
             set
             {
-                m_Value = Mathf.Clamp(value, m_JointMinAngle, m_JointMaxAngle);
-                SetKnobRotation(m_Value);
-                UpdateRobotJointAngle(m_Value);
+                m_Value = Mathf.Clamp(value, m_JointMinAngle, m_JointMaxAngle); 
                 m_OnValueChange.Invoke(m_Value);
+                if (m_ArticulationBody != null)
+                {
+                    var drive = m_ArticulationBody.xDrive;
+                    drive.target = m_Value;
+                    m_ArticulationBody.xDrive = drive;
+                }
             }
         }
         
@@ -107,8 +115,8 @@ namespace Unity.VRTemplate
 
         void Start()
         {
-            SetKnobRotation(m_Value);
-            UpdateRobotJointAngle(m_Value);
+            // SetKnobRotation(m_Value);
+            // UpdateRobotJointAngle(m_Value); //
         }
 
         protected override void OnEnable()
@@ -181,78 +189,78 @@ namespace Unity.VRTemplate
             jointAngle = knobRotation;
         }
 
-        void SetKnobRotation(float angle)
-        {
-            if (m_AngleIncrement > 0)
-            {
-                angle = Mathf.Round(angle / m_AngleIncrement) * m_AngleIncrement;
-            }
+        // void SetKnobRotation(float angle)
+        // {
+        //     if (m_AngleIncrement > 0)
+        //     {
+        //         angle = Mathf.Round(angle / m_AngleIncrement) * m_AngleIncrement;
+        //     }
 
-            if (m_Handle != null) 
-            {
-                switch (m_RotationAxis)
-                {
-                    case KnobAxis.X:
-                        m_Handle.localEulerAngles = new Vector3(angle, 0.0f, 0.0f);
-                        break;
-                    case KnobAxis.Y:
-                        m_Handle.localEulerAngles = new Vector3(0.0f, angle, 0.0f);
-                        break;
-                    case KnobAxis.Z:
-                        m_Handle.localEulerAngles = new Vector3(0.0f, 0.0f, angle);
-                        break;
-                    case KnobAxis.NegativeX:
-                        m_Handle.localEulerAngles = new Vector3(-angle, 0.0f, 0.0f);
-                        break;
-                    case KnobAxis.NegativeY:
-                        m_Handle.localEulerAngles = new Vector3(0.0f, -angle, 0.0f);
-                        break;
-                    case KnobAxis.NegativeZ:
-                        m_Handle.localEulerAngles = new Vector3(0.0f, 0.0f, -angle);
-                        break;
-                    default:
-                        m_Handle.localEulerAngles = new Vector3(0.0f, angle, 0.0f);
-                        break;
-                }
-            }
-        }
+        //     if (m_Handle != null) 
+        //     {
+        //         switch (m_RotationAxis)
+        //         {
+        //             case KnobAxis.X:
+        //                 m_Handle.localEulerAngles = new Vector3(angle, 0.0f, 0.0f);
+        //                 break;
+        //             case KnobAxis.Y:
+        //                 m_Handle.localEulerAngles = new Vector3(0.0f, angle, 0.0f);
+        //                 break;
+        //             case KnobAxis.Z:
+        //                 m_Handle.localEulerAngles = new Vector3(0.0f, 0.0f, angle);
+        //                 break;
+        //             case KnobAxis.NegativeX:
+        //                 m_Handle.localEulerAngles = new Vector3(-angle, 0.0f, 0.0f);
+        //                 break;
+        //             case KnobAxis.NegativeY:
+        //                 m_Handle.localEulerAngles = new Vector3(0.0f, -angle, 0.0f);
+        //                 break;
+        //             case KnobAxis.NegativeZ:
+        //                 m_Handle.localEulerAngles = new Vector3(0.0f, 0.0f, -angle);
+        //                 break;
+        //             default:
+        //                 m_Handle.localEulerAngles = new Vector3(0.0f, angle, 0.0f);
+        //                 break;
+        //         }
+        //     }
+        // }
 
-        void UpdateRobotJointAngle(float angle)
-        {
-            if (m_RobotJoint != null)
-            {
-                switch (m_RotationAxis)
-                {
-                    case KnobAxis.X:
-                        m_RobotJoint.localEulerAngles = new Vector3(angle, 0.0f, 0.0f); // Assuming rotation around X-axis
-                        break;
-                    case KnobAxis.Y:
-                        m_RobotJoint.localEulerAngles = new Vector3(0.0f, angle, 0.0f); // Assuming rotation around Y-axis
-                        break;
-                    case KnobAxis.Z:
-                        m_RobotJoint.localEulerAngles = new Vector3(0.0f, 0.0f, angle); // Assuming rotation around Z-axis
-                        break;
-                    case KnobAxis.NegativeX:
-                        m_RobotJoint.localEulerAngles = new Vector3(-angle, 0.0f, 0.0f); // Assuming rotation around X-axis
-                        break;
-                    case KnobAxis.NegativeY:
-                        m_RobotJoint.localEulerAngles = new Vector3(0.0f, -angle, 0.0f); // Assuming rotation around Y-axis
-                        break;
-                    case KnobAxis.NegativeZ:
-                        m_RobotJoint.localEulerAngles = new Vector3(0.0f, 0.0f, -angle); // Assuming rotation around Z-axis
-                        break;
-                    default:
-                        m_RobotJoint.localEulerAngles = new Vector3(0.0f, angle, 0.0f); // Assuming rotation around Y-axis
-                        break;
-                }
-                m_OnValueChange.Invoke(angle);
-            }
-        }
+        // void UpdateRobotJointAngle(float angle)
+        // {
+        //     if (m_RobotJoint != null)
+        //     {
+        //         switch (m_RotationAxis)
+        //         {
+        //             case KnobAxis.X:
+        //                 m_RobotJoint.localEulerAngles = new Vector3(angle, 0.0f, 0.0f); // Assuming rotation around X-axis
+        //                 break;
+        //             case KnobAxis.Y:
+        //                 m_RobotJoint.localEulerAngles = new Vector3(0.0f, angle, 0.0f); // Assuming rotation around Y-axis
+        //                 break;
+        //             case KnobAxis.Z:
+        //                 m_RobotJoint.localEulerAngles = new Vector3(0.0f, 0.0f, angle); // Assuming rotation around Z-axis
+        //                 break;
+        //             case KnobAxis.NegativeX:
+        //                 m_RobotJoint.localEulerAngles = new Vector3(-angle, 0.0f, 0.0f); // Assuming rotation around X-axis
+        //                 break;
+        //             case KnobAxis.NegativeY:
+        //                 m_RobotJoint.localEulerAngles = new Vector3(0.0f, -angle, 0.0f); // Assuming rotation around Y-axis
+        //                 break;
+        //             case KnobAxis.NegativeZ:
+        //                 m_RobotJoint.localEulerAngles = new Vector3(0.0f, 0.0f, -angle); // Assuming rotation around Z-axis
+        //                 break;
+        //             default:
+        //                 m_RobotJoint.localEulerAngles = new Vector3(0.0f, angle, 0.0f); // Assuming rotation around Y-axis
+        //                 break;
+        //         }
+        //         m_OnValueChange.Invoke(angle);
+        //     }
+        // }
 
         void OnValidate()
         {
             m_Value = Mathf.Clamp(m_Value, m_JointMinAngle, m_JointMaxAngle);
-            SetKnobRotation(m_Value);
+            // SetKnobRotation(m_Value);
         }
     }
 }

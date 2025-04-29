@@ -38,7 +38,6 @@ public class RobotManager : MonoBehaviour
     public void SetTargetEEPose(Transform target)
     {
         float[] currentAngles = GetJointAngles();
-
         // Calculate the joint angles to reach the target
         float[] jointAngles = ikSolver.InverseKinematics(target.position, target.rotation, currentAngles, urdfModel.transform);
         if (jointAngles == null)
