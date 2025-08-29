@@ -45,7 +45,7 @@ public class ProcessUrdf : MonoBehaviour
     [Obsolete]
     public void ProcessModel(GameObject urdfModel,
         ColorAffordanceThemeDatumProperty affordanceThemeDatum,
-        IKSolver ikSolver=null, KnobAxis knobAxis=KnobAxis.Y, bool grabBase=false)
+        IKSolver ikSolver=null, KnobAxis knobAxis=KnobAxis.Y, bool grabBase=false, bool makeJointsGrabbable=false)
     {
         if (urdfModel == null)
         {
@@ -54,7 +54,7 @@ public class ProcessUrdf : MonoBehaviour
         }
 
         TraverseAndModify(urdfModel);
-        reParent(affordanceThemeDatum, knobAxis);
+        reParent(affordanceThemeDatum, knobAxis, makeJointsGrabbable);
 
         GameObject lastChild = reparentingList[reparentingList.Count - 1].Key;
         lastLink = findRealLastChild(lastChild);
@@ -195,7 +195,7 @@ public class ProcessUrdf : MonoBehaviour
     }
 
     [Obsolete]
-    void reParent(ColorAffordanceThemeDatumProperty affordanceThemeDatum, KnobAxis knobAxis=KnobAxis.Y)
+    void reParent(ColorAffordanceThemeDatumProperty affordanceThemeDatum, KnobAxis knobAxis=KnobAxis.Y, bool makeJointsGrabbable=false)
     {
         for (int i = reparentingList.Count - 1; i >= 0; i--)
         {
@@ -231,8 +231,15 @@ public class ProcessUrdf : MonoBehaviour
 
 
             knob.handle = child.transform;
-            
-            createInteractionAffordance(child, knob, knobParent, affordanceThemeDatum);
+
+            if (makeJointsGrabbable)
+            {
+                createInteractionAffordance(child, knob, knobParent, affordanceThemeDatum);
+            }
+            else
+            {
+                knob.RemoveGrabInteraction();
+            }
 
             // Use .Prepend to reverse the joint order
             knobObjs.Insert(0, knob);

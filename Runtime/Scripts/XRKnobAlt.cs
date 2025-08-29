@@ -125,6 +125,12 @@ namespace Unity.VRTemplate
             base.OnDisable();
         }
 
+        public void RemoveGrabInteraction()
+        {
+            selectEntered.RemoveListener(StartGrab);
+            selectExited.RemoveListener(EndGrab);
+        }
+
         void StartGrab(SelectEnterEventArgs args)
         {
             m_Interactor = args.interactorObject;

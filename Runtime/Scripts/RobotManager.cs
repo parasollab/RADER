@@ -15,6 +15,7 @@ public class RobotManager : MonoBehaviour
     [Obsolete]
     public ColorAffordanceThemeDatumProperty affordanceThemeDatum;
     public bool grabBase = false;
+    public bool grabJoints = false;
 
     private ProcessUrdf processUrdf;
     private ProcessUrdf gripperProcessUrdf;
@@ -26,7 +27,7 @@ public class RobotManager : MonoBehaviour
         processUrdf = gameObject.AddComponent<ProcessUrdf>();
         gripperProcessUrdf = gameObject.AddComponent<ProcessUrdf>();
 
-        processUrdf.ProcessModel(urdfModel, affordanceThemeDatum, ikSolver);
+        processUrdf.ProcessModel(urdfModel, affordanceThemeDatum, ikSolver, grabBase: grabBase, makeJointsGrabbable: grabJoints);
 
         if (gripper != null)
         {
