@@ -87,25 +87,44 @@ public class QrCodeRobotPlacement : MonoBehaviour
         Vector3 markerRight = marker.transform.right;
         Vector3 projectedMarkerRight = Vector3.ProjectOnPlane(markerRight, planeNormal).normalized;
 
-        // Get the current distance between the robots
-        var currentLeftRobotPosition = _leftRobot.transform.position;
-        var currentRightRobotPosition = _rightRobot.transform.position;
-        var distanceBetweenRobots = Vector3.Distance(currentLeftRobotPosition, currentRightRobotPosition);
-        var halfDistanceBetweenRobots = distanceBetweenRobots / 2;
+        // If only one robot is assigned, place it directly on the QR code (projected position)
+        bool hasLeft = _leftRobot != null;
+        bool hasRight = _rightRobot != null;
+        int robotCount = (hasLeft ? 1 : 0) + (hasRight ? 1 : 0);
 
-        // Set the new positions so that the projected marker position is centered between them
-        var newLeftRobotPosition = projectedMarkerPosition - projectedMarkerRight * halfDistanceBetweenRobots;
-        var newRightRobotPosition = projectedMarkerPosition + projectedMarkerRight * halfDistanceBetweenRobots;
-
-        _leftRobot.transform.position = newLeftRobotPosition;
-        _rightRobot.transform.position = newRightRobotPosition;
-
-        // Update the robot rotations so that:
-        // - Their forward direction is aligned with the projected marker right (which is 90° from the marker's forward)
-        // - Their up vector aligns with the plane's normal
         Quaternion newRotation = Quaternion.LookRotation(projectedMarkerRight, planeNormal);
-        _leftRobot.transform.rotation = newRotation;
-        _rightRobot.transform.rotation = newRotation;
+
+        if (robotCount == 1)
+        {
+            if (hasLeft)
+            {
+                _leftRobot.transform.position = projectedMarkerPosition;
+                // _leftRobot.transform.rotation = newRotation;
+            }
+            else if (hasRight)
+            {
+                _rightRobot.transform.position = projectedMarkerPosition;
+                // _rightRobot.transform.rotation = newRotation;
+            }
+        }
+        else if (robotCount == 2)
+        {
+            // Get the current distance between the robots
+            var currentLeftRobotPosition = _leftRobot.transform.position;
+            var currentRightRobotPosition = _rightRobot.transform.position;
+            var distanceBetweenRobots = Vector3.Distance(currentLeftRobotPosition, currentRightRobotPosition);
+            var halfDistanceBetweenRobots = distanceBetweenRobots / 2;
+
+            // Set the new positions so that the projected marker position is centered between them
+            var newLeftRobotPosition = projectedMarkerPosition - projectedMarkerRight * halfDistanceBetweenRobots;
+            var newRightRobotPosition = projectedMarkerPosition + projectedMarkerRight * halfDistanceBetweenRobots;
+
+            _leftRobot.transform.position = newLeftRobotPosition;
+            _rightRobot.transform.position = newRightRobotPosition;
+
+            _leftRobot.transform.rotation = newRotation;
+            _rightRobot.transform.rotation = newRotation;
+        }
     }
 
     private ARPlane GetClosestPlane(Vector3 position)
