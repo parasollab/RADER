@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.XR.ARFoundation;
@@ -9,6 +10,7 @@ public class QrCodeRobotPlacement : MonoBehaviour
     [SerializeField] private InputActionReference _setRobotPositionAction;
     [SerializeField] private GameObject _leftRobot;
     [SerializeField] private GameObject _rightRobot;
+    [SerializeField] private List<GameObject> _additionalGameObjects;
 
     private bool _isRobotPlaced = false;
 
@@ -86,6 +88,16 @@ public class QrCodeRobotPlacement : MonoBehaviour
         // Project the marker's right vector onto the plane to ensure it lies in the plane
         Vector3 markerRight = marker.transform.right;
         Vector3 projectedMarkerRight = Vector3.ProjectOnPlane(markerRight, planeNormal).normalized;
+
+        // If there are additional game objects, set their x and z to the projected marker position
+        foreach (var obj in _additionalGameObjects)
+        {
+            if (obj != null)
+            {
+                var objPosition = obj.transform.position;
+                obj.transform.position = new Vector3(projectedMarkerPosition.x, objPosition.y, projectedMarkerPosition.z);
+            }
+        }
 
         // If only one robot is assigned, place it directly on the QR code (projected position)
         bool hasLeft = _leftRobot != null;
