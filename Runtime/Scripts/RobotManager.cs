@@ -26,7 +26,7 @@ public class RobotManager : MonoBehaviour
         processUrdf = gameObject.AddComponent<ProcessUrdf>();
         gripperProcessUrdf = gameObject.AddComponent<ProcessUrdf>();
 
-        processUrdf.ProcessModel(urdfModel, affordanceThemeDatum, ikSolver);
+        processUrdf.ProcessModel(urdfModel, affordanceThemeDatum, ikSolver, grabBase: grabBase);
 
         if (gripper != null)
         {
@@ -40,7 +40,7 @@ public class RobotManager : MonoBehaviour
         float[] currentAngles = GetJointAngles();
 
         // Calculate the joint angles to reach the target
-        float[] jointAngles = ikSolver.InverseKinematics(target.position, target.rotation, currentAngles, urdfModel.transform);
+        float[] jointAngles = ikSolver.InverseKinematics(target.position, target.rotation, currentAngles, processUrdf.grabJoint.transform);
         if (jointAngles == null)
         {
             return;
@@ -53,7 +53,7 @@ public class RobotManager : MonoBehaviour
     {
         float[] currentAngles = GetJointAngles();
 
-        float[] jointAngles = ikSolver.InverseKinematics(position, rotation, currentAngles, urdfModel.transform);
+        float[] jointAngles = ikSolver.InverseKinematics(position, rotation, currentAngles, processUrdf.grabJoint.transform);
         if (jointAngles == null)
         {
             return;

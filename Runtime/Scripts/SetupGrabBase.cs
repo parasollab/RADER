@@ -5,6 +5,7 @@ public class SetupGrabBase : MonoBehaviour
 {
     // Start is called before the first frame update
     public GameObject Base;
+    public GameObject Robot;
     void Start()
     {
         GrabBaseSetup(Base);
