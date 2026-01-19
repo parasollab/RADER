@@ -72,7 +72,7 @@ public class RobotManager : MonoBehaviour
         if (includeGripper && gripper != null)
         {
             float[] armJointAngles = processUrdf.GetComponent<SetupIK>().GetJointAngles();
-            float[] gripperJointAngles = gripperProcessUrdf.GetComponent<SetupIK>().GetJointAngles();
+            float[] gripperJointAngles = GetGripperJointAngles();
             float[] jointAngles = new float[armJointAngles.Length + gripperJointAngles.Length];
             armJointAngles.CopyTo(jointAngles, 0);
             gripperJointAngles.CopyTo(jointAngles, armJointAngles.Length);
@@ -144,14 +144,14 @@ public class RobotManager : MonoBehaviour
         gripper.GetComponent<SetupIK>().SetJointAngle(jointName, jointAngle, ignoreNotFound);
     }
 
-    public void GetzGripperJointAngles()
+    public float[] GetGripperJointAngles()
     {
-        gripper.GetComponent<SetupIK>().GetJointAngles();
+        return gripper.GetComponent<SetupIK>().GetJointAngles();
     }
 
-    public void GetGripperJointAngle(string jointName)
+    public float GetGripperJointAngle(string jointName)
     {
-        gripper.GetComponent<SetupIK>().GetJointAngle(jointName);
+        return gripper.GetComponent<SetupIK>().GetJointAngle(jointName);
     }
 
     private void AddGripper(GameObject gripper, GameObject lastLink)
