@@ -122,6 +122,12 @@ public class SetupIK : MonoBehaviour
         }
     }
 
+    public void SnapJointAngle(int jointIndex, float jointAngle)
+    {
+        if (xrKnobs != null && jointIndex < xrKnobs.Count)
+            xrKnobs[jointIndex].jointAngle = jointAngle;
+    }
+
     public void SetJointAngle(string jointName, float jointAngle, bool ignoreNotFound=true)
     {
         // Try to set the joint if it exists

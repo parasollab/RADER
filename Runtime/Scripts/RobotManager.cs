@@ -98,6 +98,11 @@ public class RobotManager : MonoBehaviour
         urdfModel.GetComponent<SetupIK>().SetJointAngle(jointIndex, jointAngle);
     }
 
+    public void SnapJointAngle(int jointIndex, float jointAngle)
+    {
+        urdfModel.GetComponent<SetupIK>().SnapJointAngle(jointIndex, jointAngle);
+    }
+
     public List<string> GetJointNames(bool includeGripper=false)
     {
         if (includeGripper)
