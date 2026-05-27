@@ -27,7 +27,7 @@ public class RobotManager : MonoBehaviour
         processUrdf = gameObject.AddComponent<ProcessUrdf>();
         gripperProcessUrdf = gameObject.AddComponent<ProcessUrdf>();
 
-        processUrdf.ProcessModel(urdfModel, affordanceThemeDatum, ikSolver, grabBase: grabBase, makeJointsGrabbable: grabJoints);
+        processUrdf.ProcessModel(urdfModel, affordanceThemeDatum, ikSolver, grabBase: grabBase);
 
         if (gripper != null)
         {
@@ -41,7 +41,7 @@ public class RobotManager : MonoBehaviour
         float[] currentAngles = GetJointAngles();
 
         // Calculate the joint angles to reach the target
-        float[] jointAngles = ikSolver.InverseKinematics(target.position, target.rotation, currentAngles, urdfModel.transform);
+        float[] jointAngles = ikSolver.InverseKinematics(target.position, target.rotation, currentAngles, processUrdf.grabJoint.transform);
         if (jointAngles == null)
         {
             return;
@@ -54,7 +54,7 @@ public class RobotManager : MonoBehaviour
     {
         float[] currentAngles = GetJointAngles();
 
-        float[] jointAngles = ikSolver.InverseKinematics(position, rotation, currentAngles, urdfModel.transform);
+        float[] jointAngles = ikSolver.InverseKinematics(position, rotation, currentAngles, processUrdf.grabJoint.transform);
         if (jointAngles == null)
         {
             return;
@@ -73,7 +73,7 @@ public class RobotManager : MonoBehaviour
         if (includeGripper && gripper != null)
         {
             float[] armJointAngles = processUrdf.GetComponent<SetupIK>().GetJointAngles();
-            float[] gripperJointAngles = gripperProcessUrdf.GetComponent<SetupIK>().GetJointAngles();
+            float[] gripperJointAngles = GetGripperJointAngles();
             float[] jointAngles = new float[armJointAngles.Length + gripperJointAngles.Length];
             armJointAngles.CopyTo(jointAngles, 0);
             gripperJointAngles.CopyTo(jointAngles, armJointAngles.Length);
@@ -150,14 +150,14 @@ public class RobotManager : MonoBehaviour
         gripper.GetComponent<SetupIK>().SetJointAngle(jointName, jointAngle, ignoreNotFound);
     }
 
-    public void GetzGripperJointAngles()
+    public float[] GetGripperJointAngles()
     {
-        gripper.GetComponent<SetupIK>().GetJointAngles();
+        return gripper.GetComponent<SetupIK>().GetJointAngles();
     }
 
-    public void GetGripperJointAngle(string jointName)
+    public float GetGripperJointAngle(string jointName)
     {
-        gripper.GetComponent<SetupIK>().GetJointAngle(jointName);
+        return gripper.GetComponent<SetupIK>().GetJointAngle(jointName);
     }
 
     private void AddGripper(GameObject gripper, GameObject lastLink)

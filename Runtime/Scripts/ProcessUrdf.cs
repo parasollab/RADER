@@ -27,7 +27,7 @@ public class ProcessUrdf : MonoBehaviour
     private List<string> jointNames = new List<string>();
     private List<GameObject> jointList = new List<GameObject>();
     public bool saveAsPrefab = false;
-    private GameObject grabJoint;
+    public GameObject grabJoint;
 
     private GameObject lastLink;
 
@@ -64,6 +64,7 @@ public class ProcessUrdf : MonoBehaviour
             urdfModel.AddComponent<SetupGrabBase>();
             SetupGrabBase setupBase = urdfModel.GetComponent<SetupGrabBase>();
             setupBase.Base = grabJoint;
+            setupBase.Robot = urdfModel;
         }
         
         urdfModel.AddComponent<SetupIK>();
