@@ -111,8 +111,16 @@ public class ChArUcoTrackingManager : MonoBehaviour
     /// </summary>
     private IEnumerator InitializeCamera()
     {
+        float elapsed = 0f;
+        const float timeout = 10f;
         while (!m_passthroughCameraAccess.IsPlaying)
         {
+            elapsed += Time.deltaTime;
+            if (elapsed >= timeout)
+            {
+                Debug.LogError("[ChArUcoTrackingManager] Timed out waiting for PassthroughCameraAccess to start. Check that Insight Passthrough is enabled in OculusProjectConfig.");
+                yield break;
+            }
             yield return null;
         }
         yield return null; // Wait one frame to ensure camera is fully initialized

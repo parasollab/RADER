@@ -56,12 +56,15 @@ public class CameraPermissionChecker : MonoBehaviour
         Debug.Log("==============================");
     }
     
-    // Check permissions again after a few seconds
     void Update()
     {
-        if (Time.frameCount == 180) // After 3 seconds at 60fps
+        if (Time.frameCount == 180)
         {
-            CheckPermissions();
+            #if UNITY_ANDROID && !UNITY_EDITOR
+            bool hasCam  = Permission.HasUserAuthorizedPermission(CAMERA_PERMISSION);
+            bool hasHdst = Permission.HasUserAuthorizedPermission(HEADSET_CAMERA_PERMISSION);
+            Debug.Log($"[CameraPermissionChecker] frame 180 — CAMERA:{hasCam} HEADSET_CAMERA:{hasHdst}");
+            #endif
         }
     }
 }

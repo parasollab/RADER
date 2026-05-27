@@ -59,12 +59,15 @@ public class ScenePermissionChecker : MonoBehaviour
         Debug.Log("====================================");
     }
 
-    // Optional re-check after startup
     void Update()
     {
-        if (Time.frameCount == 180) // ~3 seconds at 60 FPS
+        if (Time.frameCount == 180)
         {
-            CheckPermissions();
+            #if UNITY_ANDROID && !UNITY_EDITOR
+            bool hasScene = Permission.HasUserAuthorizedPermission(USE_SCENE_PERMISSION);
+            bool hasLoc   = Permission.HasUserAuthorizedPermission(FINE_LOCATION_PERMISSION);
+            Debug.Log($"[ScenePermissionChecker] frame 180 — USE_SCENE:{hasScene} FINE_LOCATION:{hasLoc}");
+            #endif
         }
     }
 }
