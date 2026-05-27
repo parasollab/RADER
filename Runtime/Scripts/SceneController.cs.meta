@@ -1,0 +1,13 @@
+fileFormatVersion: 2
+guid: c29c70ec401d34303a0500fd6d3979f8
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - _togglePlanesAction: {fileID: -3558169800965321586, guid: c348712bda248c246b8c49b3db54643f,
+      type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
