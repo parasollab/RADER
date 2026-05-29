@@ -55,13 +55,19 @@ public class ChArUcoTrackingManager : MonoBehaviour
     [Header("Passthrough Camera")]
     [SerializeField]
     private PassthroughCameraAccess m_passthroughCameraAccess;
-    
+
     [Header("Marker Tracking")]
     [SerializeField] private ChArUcoMarkerTracking m_charucoMarkerTracking;
     [SerializeField, Tooltip("List of marker IDs mapped to their corresponding GameObjects")]
     private GameObject _arObject;
     [SerializeField] MeshRenderer m_debugRenderer;
 
+    [Header("Performance")]
+    [SerializeField, Tooltip("Run marker detection every N frames. Higher = less CPU usage. 1 = every frame (original behavior).")]
+    [Range(1, 30)]
+    private int processEveryNFrames = 6;
+
+    private int m_frameCounter = 0;
     private bool m_showRecogResult = false;
     private Texture2D m_resultTexture;
     private Transform m_cameraAnchor;
@@ -135,17 +141,18 @@ public class ChArUcoTrackingManager : MonoBehaviour
         if(m_passthroughCameraAccess==null || !m_passthroughCameraAccess.IsPlaying || !m_charucoMarkerTracking.IsReady)
             return;
 
-        // Toggle between camera view and AR visualization on button press
+        // Toggle between camera view and AR visualization on button press (every frame, cheap)
         HandleVisualizationToggle();
-        
+
+        // Throttle expensive OpenCV processing to every N frames
+        m_frameCounter++;
+        if (m_frameCounter < processEveryNFrames)
+            return;
+        m_frameCounter = 0;
+
         // Update tracking and visualization
         UpdateCameraPoses();
-        
-        //======================================================================================
-        // CORE FUNCTIONALITY: Process marker detection and positioning of 3D objects
-        // This is where ArUco markers are detected in the camera frame and 3D objects
-        // are positioned in the scene according to marker positions
-        //======================================================================================
+
         ProcessMarkerTracking();
     }
 
