@@ -1,3 +1,4 @@
+#if OPENCV_FOR_UNITY
 // MIT License
 
 // Copyright (c) 2025 Takashi Yoshinaga
@@ -467,3 +468,4 @@ public class ChArUcoMarkerTracking : MonoBehaviour
         DICT_ARUCO_ORIGINAL = Objdetect.DICT_ARUCO_ORIGINAL,
     }
 }
+#endif

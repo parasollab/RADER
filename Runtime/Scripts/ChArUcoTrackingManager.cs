@@ -1,3 +1,4 @@
+#if OPENCV_FOR_UNITY
 // MIT License
 
 // Copyright (c) 2025 Takashi Yoshinaga
@@ -271,3 +272,4 @@ public class ChArUcoTrackingManager : MonoBehaviour
         m_cameraAnchor.rotation = cameraPose.rotation;
     }
 }
+#endif
