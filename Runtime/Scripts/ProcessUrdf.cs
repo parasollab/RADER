@@ -85,11 +85,12 @@ public class ProcessUrdf : MonoBehaviour
     {
         if (obj == null) return;
 
-        string name = obj.name;
-        // check if link in name
-        if (name.Contains("link"))
+        // Use the authoritative joint name from the UrdfJoint component rather than
+        // a fragile string replacement — works for any URDF naming convention.
+        UrdfJoint urdfJoint = obj.GetComponent<UrdfJoint>();
+        if (urdfJoint != null && !string.IsNullOrEmpty(urdfJoint.jointName))
         {
-            obj.name = name.Replace("link", "joint");
+            obj.name = urdfJoint.jointName;
         }
         // Process the current object
         RemoveAndModifyComponents(obj);

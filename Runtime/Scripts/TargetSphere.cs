@@ -69,5 +69,7 @@ public class TargetSphere : MonoBehaviour
         } else {
             robotManager.SetTargetEEPose(target.transform);
         }
+        Debug.Log("EE Name: ");
+        Debug.Log(target.name);
     }
 }
