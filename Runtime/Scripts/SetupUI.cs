@@ -72,6 +72,26 @@ public class SetupUI : MonoBehaviour
     private Slider jointSlider;
     private TextMeshProUGUI jointSliderText;
 
+    static TimeMsg CreateRosTime(float time)
+    {
+        int seconds = (int)time;
+        uint nanoseconds = (uint)((time - seconds) * 1e9f);
+#if ROS2
+        return new TimeMsg(seconds, nanoseconds);
+#else
+        return new TimeMsg((uint)seconds, nanoseconds);
+#endif
+    }
+
+    static DurationMsg CreateRosDuration(int seconds, uint nanoseconds)
+    {
+#if ROS2
+        return new DurationMsg(seconds, nanoseconds);
+#else
+        return new DurationMsg(seconds, (int)nanoseconds);
+#endif
+    }
+
     void Start()
     {
         ros = ROSConnection.GetOrCreateInstance();
@@ -346,11 +366,7 @@ public class SetupUI : MonoBehaviour
                         HeaderMsg header = new HeaderMsg
                         {
                             frame_id = robots[i].robotObject.name,
-                            stamp = new TimeMsg
-                            {
-                                sec = (int)Time.time,
-                                nanosec = (uint)((Time.time - (int)Time.time) * 1e9)
-                            }
+                            stamp = CreateRosTime(Time.time)
                         };
                         trajectory.header = header;
                         trajectory.joint_names = robots[i].jointNames.ToArray();
@@ -366,11 +382,7 @@ public class SetupUI : MonoBehaviour
                     HeaderMsg header = new HeaderMsg
                     {
                         frame_id = robot.robotObject.name,
-                        stamp = new TimeMsg
-                        {
-                            sec = (int)Time.time,
-                            nanosec = (uint)((Time.time - (int)Time.time) * 1e9)
-                        }
+                        stamp = CreateRosTime(Time.time)
                     };
                     trajectory.header = header;
                     trajectory.joint_names = robot.jointNames.ToArray();
@@ -623,7 +635,7 @@ public class SetupUI : MonoBehaviour
                     {
                         positions = Array.ConvertAll(jointPositions, item => (double)item),
                         effort = robotTorques.ToArray(),
-                        time_from_start = new DurationMsg(secs, nsecs),
+                        time_from_start = CreateRosDuration(secs, nsecs),
                     };
                     jointTrajectoryPointsDict[i].Add(point);
                 }
@@ -649,7 +661,7 @@ public class SetupUI : MonoBehaviour
                 {
                     positions = Array.ConvertAll(jointPositions, item => (double)item),
                     effort = robotTorques.ToArray(),
-                    time_from_start = new DurationMsg(secs, nsecs),
+                    time_from_start = CreateRosDuration(secs, nsecs),
                 };
                 jointTrajectoryPointsDict[i].Add(point);
             }

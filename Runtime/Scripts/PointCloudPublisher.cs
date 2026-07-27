@@ -85,6 +85,17 @@ public class PointCloudPublisher : MonoBehaviour
         return new Vector3(unityPoint.x, unityPoint.z, -unityPoint.y);
     }
 
+    static TimeMsg CreateRosTime(float time)
+    {
+        int seconds = (int)time;
+        uint nanoseconds = (uint)((time - seconds) * 1e9f);
+#if ROS2
+        return new TimeMsg(seconds, nanoseconds);
+#else
+        return new TimeMsg((uint)seconds, nanoseconds);
+#endif
+    }
+
     void PublishCachedPointCloud()
     {
         // Debug.Log("Publishing point cloud with " + pointCount + " points");
@@ -100,11 +111,7 @@ public class PointCloudPublisher : MonoBehaviour
             header = new HeaderMsg
             {
                 frame_id = "map",
-                stamp = new TimeMsg
-                {
-                    sec = (int)Time.time,
-                    nanosec = (uint)((Time.time - (int)Time.time) * 1e9)
-                }
+                stamp = CreateRosTime(Time.time)
             },
             height = 1,
             width = pointCount,
