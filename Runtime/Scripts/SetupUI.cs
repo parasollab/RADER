@@ -348,7 +348,11 @@ public class SetupUI : MonoBehaviour
                             frame_id = robots[i].robotObject.name,
                             stamp = new TimeMsg
                             {
+#if ROS2
                                 sec = (int)Time.time,
+#else
+                                sec = (uint)Time.time,
+#endif
                                 nanosec = (uint)((Time.time - (int)Time.time) * 1e9)
                             }
                         };
@@ -368,7 +372,11 @@ public class SetupUI : MonoBehaviour
                         frame_id = robot.robotObject.name,
                         stamp = new TimeMsg
                         {
+#if ROS2
                             sec = (int)Time.time,
+#else
+                            sec = (uint)Time.time,
+#endif
                             nanosec = (uint)((Time.time - (int)Time.time) * 1e9)
                         }
                     };
@@ -618,7 +626,11 @@ public class SetupUI : MonoBehaviour
                     }
                     float timeFromStart = Time.time - recordStartTimes[i];
                     int secs = (int)Math.Floor(timeFromStart);
+#if ROS2
                     uint nsecs = (uint)((timeFromStart - secs) * 1e9);
+#else
+                    int nsecs = (int)((timeFromStart - secs) * 1e9);
+#endif
                     JointTrajectoryPointMsg point = new JointTrajectoryPointMsg
                     {
                         positions = Array.ConvertAll(jointPositions, item => (double)item),
@@ -644,7 +656,11 @@ public class SetupUI : MonoBehaviour
                 }
                 float timeFromStart = Time.time - recordStartTimes[i];
                 int secs = (int)Math.Floor(timeFromStart);
+#if ROS2
                 uint nsecs = (uint)((timeFromStart - secs) * 1e9);
+#else
+                int nsecs = (int)((timeFromStart - secs) * 1e9);
+#endif
                 JointTrajectoryPointMsg point = new JointTrajectoryPointMsg
                 {
                     positions = Array.ConvertAll(jointPositions, item => (double)item),

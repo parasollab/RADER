@@ -102,7 +102,11 @@ public class PointCloudPublisher : MonoBehaviour
                 frame_id = "map",
                 stamp = new TimeMsg
                 {
+#if ROS2
                     sec = (int)Time.time,
+#else
+                    sec = (uint)Time.time,
+#endif
                     nanosec = (uint)((Time.time - (int)Time.time) * 1e9)
                 }
             },
