@@ -23,16 +23,21 @@
 // Copyright (c) Takashi Yoshinaga. All rights reserved.
 using System;
 using System.Collections;
-using Meta.XR.Samples;
 using UnityEngine;
+using UnityEngine.InputSystem;
+#if ERUPT_USE_META_XR && UNITY_ANDROID && !UNITY_VISIONOS
 using Meta.XR;
+using Meta.XR.Samples;
+#endif
 
 
 /// <summary>
 /// Coordinates the AR marker tracking application, handling camera initialization,
 /// marker detection, and visualization management.
 /// </summary>
+#if ERUPT_USE_META_XR && UNITY_ANDROID && !UNITY_VISIONOS
 [MetaCodeSample("PassthroughCameraApiSamples-MarkerTracking")]
+#endif
 public class ChArUcoTrackingManager : MonoBehaviour
 {
     /// <summary>
@@ -54,13 +59,19 @@ public class ChArUcoTrackingManager : MonoBehaviour
 
     [Header("Passthrough Camera")]
     [SerializeField]
+#if ERUPT_USE_META_XR && UNITY_ANDROID && !UNITY_VISIONOS
     private PassthroughCameraAccess m_passthroughCameraAccess;
+#else
+    private MonoBehaviour m_passthroughCameraAccess;
+#endif
 
     [Header("Marker Tracking")]
     [SerializeField] private ChArUcoMarkerTracking m_charucoMarkerTracking;
     [SerializeField, Tooltip("List of marker IDs mapped to their corresponding GameObjects")]
     private GameObject _arObject;
     [SerializeField] MeshRenderer m_debugRenderer;
+    [SerializeField, Tooltip("Optional generic input action for toggling the debug recognition view.")]
+    private InputActionReference m_toggleVisualizationAction;
 
     [Header("Performance")]
     [SerializeField, Tooltip("Run marker detection every N frames. Higher = less CPU usage. 1 = every frame (original behavior).")]
@@ -72,11 +83,25 @@ public class ChArUcoTrackingManager : MonoBehaviour
     private Texture2D m_resultTexture;
     private Transform m_cameraAnchor;
 
+    private void OnEnable()
+    {
+        m_toggleVisualizationAction?.action?.Enable();
+    }
+
+    private void OnDisable()
+    {
+        m_toggleVisualizationAction?.action?.Disable();
+    }
+
     /// <summary>
     /// Initializes the camera anchor, camera, and marker tracking system.
     /// </summary>
     private IEnumerator Start()
     {
+#if !(ERUPT_USE_META_XR && UNITY_ANDROID && !UNITY_VISIONOS)
+        Debug.LogWarning("[ChArUcoTrackingManager] Raw passthrough camera access is only enabled for Quest builds with ERUPT_USE_META_XR. Marker tracking is disabled for this build.");
+        yield break;
+#else
         if(m_passthroughCameraAccess==null)
         {
             Debug.LogError("PassthroughCameraAccess reference is missing.");
@@ -101,6 +126,7 @@ public class ChArUcoTrackingManager : MonoBehaviour
             m_debugRenderer.gameObject.SetActive(m_showRecogResult);
         }
         SetMarkerObjectsVisibility(!m_showRecogResult);
+#endif
     }
 
     /// <summary>
@@ -117,6 +143,7 @@ public class ChArUcoTrackingManager : MonoBehaviour
     /// </summary>
     private IEnumerator InitializeCamera()
     {
+#if ERUPT_USE_META_XR && UNITY_ANDROID && !UNITY_VISIONOS
         float elapsed = 0f;
         const float timeout = 10f;
         while (!m_passthroughCameraAccess.IsPlaying)
@@ -130,6 +157,9 @@ public class ChArUcoTrackingManager : MonoBehaviour
             yield return null;
         }
         yield return null; // Wait one frame to ensure camera is fully initialized
+#else
+        yield break;
+#endif
     }
 
     /// <summary>
@@ -137,6 +167,7 @@ public class ChArUcoTrackingManager : MonoBehaviour
     /// </summary>
     private void Update()
     {
+#if ERUPT_USE_META_XR && UNITY_ANDROID && !UNITY_VISIONOS
         // Skip if camera or tracking system isn't ready
         if(m_passthroughCameraAccess==null || !m_passthroughCameraAccess.IsPlaying || !m_charucoMarkerTracking.IsReady)
             return;
@@ -154,6 +185,7 @@ public class ChArUcoTrackingManager : MonoBehaviour
         UpdateCameraPoses();
 
         ProcessMarkerTracking();
+#endif
     }
 
     /// <summary>
@@ -164,7 +196,8 @@ public class ChArUcoTrackingManager : MonoBehaviour
         if(m_debugRenderer==null)
             return;
 
-        if (OVRInput.GetDown(OVRInput.Button.One))
+        if (m_toggleVisualizationAction != null && m_toggleVisualizationAction.action != null &&
+            m_toggleVisualizationAction.action.WasPressedThisFrame())
         {
             m_showRecogResult = !m_showRecogResult;
             m_debugRenderer.gameObject.SetActive(m_showRecogResult);
@@ -179,12 +212,14 @@ public class ChArUcoTrackingManager : MonoBehaviour
     /// </summary>
     private void ProcessMarkerTracking()
     {
+#if ERUPT_USE_META_XR && UNITY_ANDROID && !UNITY_VISIONOS
         // Step 1: Detect ChArUco markers in the current camera frame
         m_charucoMarkerTracking.DetectMarker(m_passthroughCameraAccess.GetTexture(), m_resultTexture);
         
         // Step 2: Estimate the pose of the ChArUco board and position 3D object accordingly
         // This maps the 2D marker positions to 3D space using the camera parameters
         m_charucoMarkerTracking.EstimatePose(_arObject, m_cameraAnchor);
+#endif
     }
 
     /// <summary>
@@ -209,6 +244,7 @@ public class ChArUcoTrackingManager : MonoBehaviour
     /// </summary>
     private void InitializeMarkerTracking()
     {
+#if ERUPT_USE_META_XR && UNITY_ANDROID && !UNITY_VISIONOS
         // Step 1: Get camera intrinsic parameters
         // These intrinsic parameters are essential for accurate marker pose estimation
         var intrinsics = m_passthroughCameraAccess.Intrinsics;
@@ -241,6 +277,7 @@ public class ChArUcoTrackingManager : MonoBehaviour
         
         // Step 4: Set up texture for visualization
         ConfigureResultTexture(width, height);
+#endif
     }
 
 
@@ -265,9 +302,11 @@ public class ChArUcoTrackingManager : MonoBehaviour
     /// </summary>
     private void UpdateCameraPoses()
     {
+#if ERUPT_USE_META_XR && UNITY_ANDROID && !UNITY_VISIONOS
         // Update camera anchor position and rotation
         var cameraPose = m_passthroughCameraAccess.GetCameraPose();
         m_cameraAnchor.position = cameraPose.position;
         m_cameraAnchor.rotation = cameraPose.rotation;
+#endif
     }
 }

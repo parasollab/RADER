@@ -23,8 +23,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using Meta.XR;
 using UnityEngine;
+using UnityEngine.InputSystem;
+#if ERUPT_USE_META_XR && UNITY_ANDROID && !UNITY_VISIONOS
+using Meta.XR;
+#endif
 
 public class ArUcoTrackingManager : MonoBehaviour
 {
@@ -47,13 +50,19 @@ public class ArUcoTrackingManager : MonoBehaviour
 
     [Header("Passthrough Camera")]
     [SerializeField]
+#if ERUPT_USE_META_XR && UNITY_ANDROID && !UNITY_VISIONOS
     private PassthroughCameraAccess m_passthroughCameraAccess;
+#else
+    private MonoBehaviour m_passthroughCameraAccess;
+#endif
 
     [Header("Marker Tracking")]
     [SerializeField] private ArUcoMarkerTracking m_arucoMarkerTracking;
     [SerializeField, Tooltip("List of marker IDs mapped to their corresponding GameObjects")]
     private List<MarkerGameObjectPair> m_markerGameObjectPairs = new List<MarkerGameObjectPair>();
     [SerializeField] MeshRenderer m_debugRenderer;
+    [SerializeField, Tooltip("Optional generic input action for toggling the debug recognition view.")]
+    private InputActionReference m_toggleVisualizationAction;
 
     private Dictionary<int, GameObject> m_markerGameObjectDictionary = new Dictionary<int, GameObject>();
     
@@ -64,11 +73,25 @@ public class ArUcoTrackingManager : MonoBehaviour
     
     private bool m_showRecogResult = false;
 
+    private void OnEnable()
+    {
+        m_toggleVisualizationAction?.action?.Enable();
+    }
+
+    private void OnDisable()
+    {
+        m_toggleVisualizationAction?.action?.Disable();
+    }
+
     /// <summary>
     /// Initializes the camera anchor, camera, and marker tracking system.
     /// </summary>
     private IEnumerator Start()
     {
+#if !(ERUPT_USE_META_XR && UNITY_ANDROID && !UNITY_VISIONOS)
+        Debug.LogWarning("[ArUcoTrackingManager] Raw passthrough camera access is only enabled for Quest builds with ERUPT_USE_META_XR. Marker tracking is disabled for this build.");
+        yield break;
+#else
     
         if(m_passthroughCameraAccess==null)
         {
@@ -95,6 +118,7 @@ public class ArUcoTrackingManager : MonoBehaviour
             m_debugRenderer.gameObject.SetActive(m_showRecogResult);
         }
         SetMarkerObjectsVisibility(!m_showRecogResult);
+#endif
     }
 
 
@@ -113,11 +137,15 @@ public class ArUcoTrackingManager : MonoBehaviour
     /// </summary>
     private IEnumerator InitializeCamera()
     {
+#if ERUPT_USE_META_XR && UNITY_ANDROID && !UNITY_VISIONOS
         while (!m_passthroughCameraAccess.IsPlaying)
         {
             yield return null;
         }
         yield return null; // Wait one frame to ensure camera is fully initialized
+#else
+        yield break;
+#endif
     }
 
     /// <summary>
@@ -125,6 +153,7 @@ public class ArUcoTrackingManager : MonoBehaviour
     /// </summary>
     private void Update()
     {
+#if ERUPT_USE_META_XR && UNITY_ANDROID && !UNITY_VISIONOS
         // Skip if camera or tracking system isn't ready
         if(m_passthroughCameraAccess==null || !m_passthroughCameraAccess.IsPlaying || !m_arucoMarkerTracking.IsReady)
             return;
@@ -141,6 +170,7 @@ public class ArUcoTrackingManager : MonoBehaviour
         // are positioned in the scene according to marker positions
         //======================================================================================
         ProcessMarkerTracking();
+#endif
     }
 
     /// <summary>
@@ -151,7 +181,8 @@ public class ArUcoTrackingManager : MonoBehaviour
         if(m_debugRenderer==null)
             return;
 
-        if (OVRInput.GetDown(OVRInput.Button.One))
+        if (m_toggleVisualizationAction != null && m_toggleVisualizationAction.action != null &&
+            m_toggleVisualizationAction.action.WasPressedThisFrame())
         {
             m_showRecogResult = !m_showRecogResult;
             m_debugRenderer.gameObject.SetActive(m_showRecogResult);
@@ -166,12 +197,14 @@ public class ArUcoTrackingManager : MonoBehaviour
     /// </summary>
     private void ProcessMarkerTracking()
     {
+#if ERUPT_USE_META_XR && UNITY_ANDROID && !UNITY_VISIONOS
         // Step 1: Detect ArUco markers in the current camera frame
         m_arucoMarkerTracking.DetectMarker(m_passthroughCameraAccess.GetTexture(), m_resultTexture);
         
         // Step 2: Estimate the pose of markers and position 3D objects accordingly
         // This maps the 2D marker positions to 3D space using the camera parameters
         m_arucoMarkerTracking.EstimatePoseCanonicalMarker(m_markerGameObjectDictionary, m_cameraAnchor);
+#endif
     }
 
     /// <summary>
@@ -201,6 +234,7 @@ public class ArUcoTrackingManager : MonoBehaviour
     /// </summary>
     private void InitializeMarkerTracking()
     {
+#if ERUPT_USE_META_XR && UNITY_ANDROID && !UNITY_VISIONOS
         // Step 1: Get camera intrinsic parameters
         // These intrinsic parameters are essential for accurate marker pose estimation
         var intrinsics = m_passthroughCameraAccess.Intrinsics;
@@ -237,6 +271,7 @@ public class ArUcoTrackingManager : MonoBehaviour
         
         // Step 5: Set up texture for visualization
         ConfigureResultTexture(width, height);
+#endif
     }
 
     /// <summary>
@@ -274,9 +309,11 @@ public class ArUcoTrackingManager : MonoBehaviour
     /// </summary>
     private void UpdateCameraPoses()
     {
+#if ERUPT_USE_META_XR && UNITY_ANDROID && !UNITY_VISIONOS
         // Update camera anchor position and rotation
         var cameraPose = m_passthroughCameraAccess.GetCameraPose();
         m_cameraAnchor.position = cameraPose.position;
         m_cameraAnchor.rotation = cameraPose.rotation;
+#endif
     }
 }

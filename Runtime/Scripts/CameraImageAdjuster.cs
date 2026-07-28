@@ -20,12 +20,18 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-using Meta.XR;
 using UnityEngine;
+#if ERUPT_USE_META_XR && UNITY_ANDROID && !UNITY_VISIONOS
+using Meta.XR;
+#endif
 
 public class CameraImageAduster : MonoBehaviour
 {
+#if ERUPT_USE_META_XR && UNITY_ANDROID && !UNITY_VISIONOS
     [SerializeField] private PassthroughCameraAccess _passthroughCameraAccess;
+#else
+    [SerializeField] private Camera _fallbackCamera;
+#endif
     [SerializeField] private float _distanceFromCamera = 1.0f;
    
     void Awake()
@@ -40,6 +46,10 @@ public class CameraImageAduster : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+#if ERUPT_USE_META_XR && UNITY_ANDROID && !UNITY_VISIONOS
+        if (_passthroughCameraAccess == null || !_passthroughCameraAccess.IsPlaying)
+            return;
+
         var pose = _passthroughCameraAccess.GetCameraPose();
         var intrinsics = _passthroughCameraAccess.Intrinsics;
         var image = _passthroughCameraAccess.CurrentResolution;
@@ -52,6 +62,17 @@ public class CameraImageAduster : MonoBehaviour
         var scaleY = scaleX * (image.y / (float)image.x);
 
         transform.localScale = new Vector3(scaleX, scaleY, 1.0f);
+#else
+        _fallbackCamera ??= Camera.main;
+        if (_fallbackCamera == null)
+            return;
 
+        transform.SetPositionAndRotation(
+            _fallbackCamera.transform.position + _fallbackCamera.transform.forward * _distanceFromCamera,
+            _fallbackCamera.transform.rotation);
+
+        float height = 2f * _distanceFromCamera * Mathf.Tan(_fallbackCamera.fieldOfView * Mathf.Deg2Rad * 0.5f);
+        transform.localScale = new Vector3(height * _fallbackCamera.aspect, height, 1f);
+#endif
     }
 }
