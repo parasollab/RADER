@@ -29,6 +29,12 @@ public class CollisionHaptics : MonoBehaviour
 
     private void OnEnable()
     {
+        if (!ShouldRunForCurrentPlatform())
+        {
+            enabled = false;
+            return;
+        }
+
         m_HapticManager = new HapticControlActionManager();
         TagRobotColliders();
     }
@@ -128,5 +134,14 @@ public class CollisionHaptics : MonoBehaviour
         if (actionRef == null) return;
         var channel = m_HapticManager.GetChannelGroup(actionRef.action)?.GetChannel();
         channel?.SendHapticImpulse(intensity, 0.1f);
+    }
+
+    private static bool ShouldRunForCurrentPlatform()
+    {
+#if UNITY_VISIONOS
+        return false;
+#else
+        return true;
+#endif
     }
 }
